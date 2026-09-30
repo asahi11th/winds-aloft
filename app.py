@@ -15,7 +15,20 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-plt.rcParams['font.family'] = 'IPAGothic'
+import glob
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# サーバーにインストールされたフォントをMatplotlibへ直接読み込ませる
+for font_path in glob.glob('/usr/share/fonts/**/*.[o|t]tf', recursive=True):
+    try:
+        fm.fontManager.addfont(font_path)
+    except Exception:
+        pass
+
+# 日本語フォントを優先設定
+plt.rcParams['font.family'] = ['IPAGothic', 'IPAexGothic', 'sans-serif']
+plt.rcParams['axes.unicode_minus'] = False
 import numpy as np
 import pandas as pd
 import requests
