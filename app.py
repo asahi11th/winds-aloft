@@ -15,7 +15,7 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import japanize_matplotlib
+plt.rcParams['font.family'] = 'IPAGothic'
 import numpy as np
 import pandas as pd
 import requests
