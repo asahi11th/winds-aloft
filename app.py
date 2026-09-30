@@ -238,7 +238,7 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime):
   # 最上部タイトル
   dt_str = target_datetime.strftime("%Y年%m月%d日 %H:00 JST")
   fig.suptitle(
-      f"✈️ Winds Aloft 予想風 （対象日時: {dt_str}）",
+      f"Winds Aloft 予想風 （対象日時: {dt_str}）",
       fontsize=17,
       fontweight="bold",
       color="#1A365D",
