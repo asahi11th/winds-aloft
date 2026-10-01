@@ -360,12 +360,12 @@ def generate_map_figure(
     ax_table = fig.add_axes(rect, facecolor='white')
     ax_table.axis('off')
 
-    # 地点タイトル
+    # 地点タイトル（文字サイズ拡大: 13 -> 15）
     ax_table.text(
         0.0,
         0.91,
         name,
-        fontsize=13,
+        fontsize=15,
         fontweight='bold',
         color='#1A365D',
         transform=ax_table.transAxes,
@@ -395,7 +395,7 @@ def generate_map_figure(
       if r == 0:
         cell.set_facecolor('#2B6CB0')
         txt.set_color('white')
-        txt.set_fontsize(11.0)
+        txt.set_fontsize(12.5)  # ヘッダー文字サイズ拡大: 11.0 -> 12.5
         txt.set_weight('bold')
       else:
         if r % 2 == 1:
@@ -404,7 +404,7 @@ def generate_map_figure(
           cell.set_facecolor('#EDF2F7')
 
         txt.set_color('#000000')
-        txt.set_fontsize(10.0)
+        txt.set_fontsize(12.0)  # 数値文字サイズ拡大: 10.0 -> 12.0
         txt.set_weight('normal')
 
     # 引出線
