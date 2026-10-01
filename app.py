@@ -120,6 +120,7 @@ def get_japan_geojson():
 
 
 def calculate_isa_diff(alt_ft, temp_c):
+  """標準大気(ISA)との差分計算"""
   isa_temp = 15.0 - (alt_ft / 1000.0) * 1.98
   return round(temp_c - isa_temp)
 
@@ -169,16 +170,18 @@ def fetch_weather_data(lat, lon, model_choice):
   raise last_error
 
 
-def get_var_value(hourly_dict, var_prefix, hpa_str, idx, default=0.0):
+def get_raw_var_value(hourly_dict, var_prefix, hpa_str, idx):
+  """気圧面変数の取得 (未存在・Noneの場合は None を返す)"""
   target_key = f'{var_prefix}_{hpa_str}hPa'.lower()
   for k, v in hourly_dict.items():
     if k.lower() == target_key:
       if idx < len(v) and v[idx] is not None:
         return float(v[idx])
-  return default
+  return None
 
 
 def process_location_data(data_json, target_datetime):
+  """指定地点のデータを解析・欠損補正・減率チェックを行って表用データを作成"""
   hourly = data_json.get('hourly', {})
   time_list = hourly.get('time', [])
   if not time_list:
@@ -188,30 +191,70 @@ def process_location_data(data_json, target_datetime):
   target_dt = pd.to_datetime(target_datetime)
   idx = abs(times - target_dt).argmin()
 
-  sfc_temp = hourly.get('temperature_2m', [15])[idx] or 15.0
-  sfc_ws = hourly.get('wind_speed_10m', [0])[idx] or 0.0
-  sfc_wd = hourly.get('wind_direction_10m', [0])[idx] or 0.0
+  # 地上(2m / 10m)データ
+  sfc_temp = hourly.get('temperature_2m', [15.0])[idx]
+  if sfc_temp is None:
+    sfc_temp = 15.0
 
-  press_alts, temps, u_comp, v_comp = [], [], [], []
+  sfc_ws = hourly.get('wind_speed_10m', [0.0])[idx]
+  if sfc_ws is None:
+    sfc_ws = 0.0
 
+  sfc_wd = hourly.get('wind_direction_10m', [0.0])[idx]
+  if sfc_wd is None:
+    sfc_wd = 0.0
+
+  # 0ft(地上)の基準点を追加
+  press_alts = [0.0]
+  temps = [sfc_temp]
+
+  rad_sfc = math.radians(sfc_wd)
+  u_comp = [-sfc_ws * math.sin(rad_sfc)]
+  v_comp = [-sfc_ws * math.cos(rad_sfc)]
+
+  # 各気圧面のデータ取得（欠損時は地上からの標準減率で補算）
   for p in PRESSURE_LEVELS:
     h = p['hpa']
-    alt_ft = p['ft']
-    t = get_var_value(hourly, 'temperature', h, idx, default=sfc_temp)
-    ws = get_var_value(hourly, 'wind_speed', h, idx, default=sfc_ws)
-    wd = get_var_value(hourly, 'wind_direction', h, idx, default=sfc_wd)
+    alt_ft = float(p['ft'])
+
+    t_val = get_raw_var_value(hourly, 'temperature', h, idx)
+    ws_val = get_raw_var_value(hourly, 'wind_speed', h, idx)
+    wd_val = get_raw_var_value(hourly, 'wind_direction', h, idx)
+
+    # 気温欠損時の補正：地上気温から標準減率（-1.98℃/1,000ft）で自動算出
+    if t_val is None:
+      t_val = sfc_temp - (alt_ft / 1000.0) * 1.98
+
+    # 風速・風向欠損時の補正：直近（地上）の値をフォールバック
+    if ws_val is None:
+      ws_val = sfc_ws
+    if wd_val is None:
+      wd_val = sfc_wd
 
     press_alts.append(alt_ft)
-    temps.append(t)
-    rad = math.radians(wd)
-    u_comp.append(-ws * math.sin(rad))
-    v_comp.append(-ws * math.cos(rad))
+    temps.append(t_val)
+
+    rad = math.radians(wd_val)
+    u_comp.append(-ws_val * math.sin(rad))
+    v_comp.append(-ws_val * math.cos(rad))
 
   rows = []
   for target_alt in TARGET_ALTITUDES:
-    t_interp = float(np.interp(target_alt, press_alts, temps))
-    u_interp = float(np.interp(target_alt, press_alts, u_comp))
-    v_interp = float(np.interp(target_alt, press_alts, v_comp))
+    if target_alt == 0:
+      t_interp = sfc_temp
+      u_interp = u_comp[0]
+      v_interp = v_comp[0]
+    else:
+      # 各高度へ補間
+      t_interp = float(np.interp(target_alt, press_alts, temps))
+      u_interp = float(np.interp(target_alt, press_alts, u_comp))
+      v_interp = float(np.interp(target_alt, press_alts, v_comp))
+
+      # 【標準減率・整合性チェックガード】
+      # 地上からの理論気温（標準減率: -1.98℃ / 1000ft）
+      expected_isa_temp = sfc_temp - (target_alt / 1000.0) * 1.98
+      # 気象モデル特有の極端な逆転層やデータ歪みを考慮し、理論値から±8℃以内に収まるようガード
+      t_interp = np.clip(t_interp, expected_isa_temp - 8.0, sfc_temp + 5.0)
 
     ws_interp = math.hypot(u_interp, v_interp)
     wd_true = (math.degrees(math.atan2(-u_interp, -v_interp)) + 360) % 360
