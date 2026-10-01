@@ -442,12 +442,19 @@ def generate_map_figure(
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# 全体フォントをメイリオ指定するCSS
+# 全体フォント設定およびプルダウンタップ判定拡張CSS
 st.markdown(
     """
     <style>
     html, body, [class*="css"] {
         font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important;
+    }
+    /* プルダウンの枠内どこをタップしても反応するように設定 */
+    div[data-baseweb="select"] {
+        cursor: pointer !important;
+    }
+    div[data-baseweb="select"] * {
+        cursor: pointer !important;
     }
     </style>
     """,
