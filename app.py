@@ -307,7 +307,7 @@ def generate_map_figure(
   }
   model_name = model_display_names.get(model_code, model_code)
 
-  # 最上部タイトル（斜線の入らないすっきりした標準フォント）
+  # 【修正部分】タイトルのみ斜線の入らない標準的な見やすいフォント(Arial / IPAGothic 等)を優先指定
   dt_str = target_datetime.strftime('%Y年%m月%d日 %H:00 JST')
   fig.suptitle(
       f'出発時刻の予想風 （ {dt_str} / モデル: {model_name}）',
@@ -438,9 +438,9 @@ def generate_map_figure(
       txt = cell.get_text()
       txt.set_clip_on(False)
 
-      # 0に斜線が入らないクリーンで読みやすい標準フォント指定（Arial / IPAGothic 等）
+      # 表セル内は元通りの等幅フォント(Consolas系)に戻す
       txt.set_fontfamily(
-          ['Arial', 'Helvetica', 'IPAGothic', 'IPAexGothic', 'sans-serif']
+          ['Consolas', 'DejaVu Sans Mono', 'monospace', 'IPAGothic']
       )
 
       if r == 0:
