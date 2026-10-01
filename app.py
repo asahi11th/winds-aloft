@@ -371,7 +371,7 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime, model_
         )
         fig.add_artist(con)
 
-    # 右下のデータ参照元注記（選択されたモデルを表示）
+    # 右下のデータ参照元注記
     source_label = "JMA (GSM Model)" if model_choice == "気象庁 (JMA)" else "ECMWF (IFS Model)"
     fig.text(
         0.985,
@@ -399,8 +399,8 @@ st.caption(
 jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
 
-# 操作パネル（4列構成）
-col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
+# 操作パネル（3列構成）
+col1, col2, col3 = st.columns([2, 2, 2])
 
 with col1:
     # 気象モデルの選択（デフォルト: ECMWF）
@@ -415,10 +415,15 @@ with col2:
     selected_date = st.date_input("日付を選択", now_jst.date())
 
 with col3:
-    # 時刻選択（デフォルト: 現在時刻）
-    selected_hour = st.slider(
-        "時刻を選択 (JST)", min_value=0, max_value=23, value=now_jst.hour, format="%02d:00"
+    # 時刻選択プルダウン（00:00 〜 23:00、初期値は現在時刻）
+    hours_list = [f"{h:02d}:00" for h in range(24)]
+    selected_hour_str = st.selectbox(
+        "時刻を選択 (JST)",
+        hours_list,
+        index=now_jst.hour
     )
+    # 文字列 "09:00" などから数値（9）を取得
+    selected_hour = int(selected_hour_str.split(":")[0])
 
 target_datetime = datetime.combine(
     selected_date, datetime.min.time()
