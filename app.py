@@ -442,7 +442,7 @@ def generate_map_figure(
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# 全体フォント設定およびプルダウンタップ判定拡張CSS
+# 全体フォント設定およびプルダウンタップ判定・位置調整CSS
 st.markdown(
     """
     <style>
@@ -455,6 +455,10 @@ st.markdown(
     }
     div[data-baseweb="select"] * {
         cursor: pointer !important;
+    }
+    /* ドロップダウンメニューのスクロール位置が端末で正しく中央表示されるようスタイル調整 */
+    ul[role="listbox"] {
+        max-height: 280px !important;
     }
     </style>
     """,
@@ -489,11 +493,12 @@ with col2:
   selected_date = st.date_input('日付', now_jst.date())
 
 with col3:
-  # 00:00 〜 23:00 の標準時系列順リスト
+  # 00:00 〜 23:00 の自然な標準時系列順リスト
   hours_list = [f'{h:02d}:00' for h in range(24)]
 
-  # 「次の時間（現在時刻 + 1時間）」をデフォルト選択位置に指定
+  # 「次の時間（現在時刻 + 1時間）」を初期選択位置として指定
   next_hour = min(now_jst.hour + 1, 23)
+
   selected_hour_str = st.selectbox(
       '時刻 (JST)',
       hours_list,
