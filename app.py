@@ -390,37 +390,53 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime, model_
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title="Winds Aloft 予想風作成", layout="wide")
 
-st.title("Winds Aloft 予想風 出力")
-st.caption(
-    "Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C"
+# 入力フォームの幅をコンパクトに抑えるためのカスタムCSS
+st.markdown(
+    """
+    <style>
+    div[data-baseweb="select"] {
+        max-width: 180px !important;
+    }
+    div[data-baseweb="calendar"] {
+        max-width: 180px !important;
+    }
+    .stDateInput > div {
+        max-width: 180px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
+
+st.title("Winds Aloft 予想風 出力")
+st.caption("Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C")
 
 # 現在の日本時間（JST）を自動取得
 jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
 
-# 操作パネル（3列構成）
-col1, col2, col3 = st.columns([2, 2, 2])
+# 操作パネル（文字数に合わせて列幅をコンパクトに調整）
+col1, col2, col3, _ = st.columns([1.2, 1.2, 1.0, 2.6])
 
 with col1:
     # 気象モデルの選択（デフォルト: ECMWF）
     model_choice = st.selectbox(
-        "気象モデルを選択",
+        "気象モデル",
         ["ECMWF (IFS)", "気象庁 (JMA)"],
-        index=0
+        index=0,
     )
 
 with col2:
     # 日付選択（デフォルト: 今日）
-    selected_date = st.date_input("日付を選択", now_jst.date())
+    selected_date = st.date_input("日付", now_jst.date())
 
 with col3:
     # 時刻選択プルダウン（00:00 〜 23:00、初期値は現在時刻）
     hours_list = [f"{h:02d}:00" for h in range(24)]
     selected_hour_str = st.selectbox(
-        "時刻を選択 (JST)",
+        "時刻 (JST)",
         hours_list,
-        index=now_jst.hour
+        index=now_jst.hour,
     )
     # 文字列 "09:00" などから数値（9）を取得
     selected_hour = int(selected_hour_str.split(":")[0])
@@ -443,7 +459,9 @@ if st.button("データ取得＆予想風を作成", type="primary"):
                 st.error(f"{loc['name']} の取得失敗: {e}")
 
         # カラー図の描画
-        fig = generate_map_figure(all_location_data, geojson_data, target_datetime, model_choice)
+        fig = generate_map_figure(
+            all_location_data, geojson_data, target_datetime, model_choice
+        )
 
         st.success(
             f"取得日時: **{selected_date.strftime('%Y年%m月%d日')} {selected_hour:02d}:00 JST** （モデル: **{model_choice}**）"
