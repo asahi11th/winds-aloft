@@ -417,7 +417,7 @@ if "pdf_data" not in st.session_state:
     st.session_state.info_text = ""
 
 # --- 1行目：操作パネル（気象モデル / 日付 / 時刻 / PDFダウンロードボタン） ---
-col1, col2, col3, col4, _ = st.columns([1.3, 1.1, 0.9, 1.8, 1.0])
+col1, col2, col3, col4, _ = st.columns([1.3, 1.1, 0.9, 1.2, 1.6])
 
 with col1:
     model_choice = st.selectbox(
@@ -450,11 +450,10 @@ with col4:
             file_name=st.session_state.pdf_filename,
             mime="application/pdf",
             type="secondary",
-            use_container_width=True,
             key="download_top",
         )
     else:
-        st.button("📄 PDFをダウンロード (未作成)", disabled=True, use_container_width=True)
+        st.button("📄 PDFにする", disabled=True)
 
 target_datetime = datetime.combine(
     selected_date, datetime.min.time()
