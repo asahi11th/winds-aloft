@@ -545,14 +545,30 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     st.session_state.pdf_filename = filename
     st.session_state.fig = fig
     st.session_state.info_text = (
-        f'取得日時: **{executed_at}** ／ 対象日時:'
-        f' **{selected_date.strftime("%Y年%m月%d日")}'
-        f' {selected_hour:02d}:00 JST** （モデル: **{model_choice}**）'
+        f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
+        f' <b>{selected_date.strftime("%Y年%m月%d日")}'
+        f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_choice}</b>）'
     )
 
     st.rerun()
 
 # --- 3行目：生成結果の表示 ---
 if st.session_state.fig is not None:
-  st.success(st.session_state.info_text)
+  st.markdown(
+      f"""
+    <div style="
+        display: inline-block;
+        background-color: #E6F4EA;
+        color: #137333;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 12px;
+        border: 1px solid #CEEAD6;
+    ">
+        {st.session_state.info_text}
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
   st.pyplot(st.session_state.fig, use_container_width=True)
