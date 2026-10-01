@@ -402,7 +402,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("Winds Aloft 予想風 出力")
+st.title("🛫Winds Aloft 予想風 出力🛫")
 st.caption("Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C")
 
 # 現在の日本時間（JST）を自動取得
@@ -410,7 +410,7 @@ jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
 
 # 操作パネル（文字数に合わせて列幅をコンパクトに調整）
-col1, col2, col3, _ = st.columns([1.2, 1.2, 1.0, 2.6])
+col1, col2, col3, _ = st.columns([1.5, 1.2, 1.0, 3.0])
 
 with col1:
     # 気象モデルの選択（デフォルト: ECMWF）
