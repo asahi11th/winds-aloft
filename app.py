@@ -322,16 +322,18 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime, model_
             va="bottom",
         )
 
-        # 表の作成
-        col_labels = ["高度(ft)", "気温(℃)", "風", "ISA差"]
+       # 表の作成（colWidthsで各列の幅の比率を指定）
+    col_labels = ['高度(ft)', '気温(℃)', '風', 'ISA差']
+    col_widths = [0.22, 0.20, 0.38, 0.20]  # 風の列を広め(38%)にし、他をコンパクトに設定
 
-        table = ax_table.table(
-            cellText=table_data,
-            colLabels=col_labels,
-            cellLoc="center",
-            loc="lower center",
-            bbox=[0.0, 0.0, 1.0, 0.88],
-        )
+    table = ax_table.table(
+        cellText=table_data,
+        colLabels=col_labels,
+        colWidths=col_widths,  # ← ここを追加
+        cellLoc='center',
+        loc='lower center',
+        bbox=[0.0, 0.0, 1.0, 0.88],
+    )
 
         table.auto_set_font_size(False)
 
