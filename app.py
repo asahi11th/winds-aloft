@@ -442,31 +442,19 @@ def generate_map_figure(
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# 下側に切れ込まないためのポップアップメニュー位置調整・スクロール補正CSS
+# 全体フォント設定およびプルダウンタップ判定拡張CSS
 st.markdown(
     """
     <style>
     html, body, [class*="css"] {
         font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important;
     }
+    /* プルダウンの枠内どこをタップしても反応するように設定 */
     div[data-baseweb="select"] {
         cursor: pointer !important;
     }
     div[data-baseweb="select"] * {
         cursor: pointer !important;
-    }
-
-    /* ポップアップメニューが選択中の項目を中心に上限・下限を確保して表示されるよう補正 */
-    div[data-baseweb="popover"] > div,
-    ul[role="listbox"],
-    div[role="listbox"] {
-        max-height: 280px !important;
-        overflow-y: auto !important;
-    }
-
-    li[role="option"] {
-        padding-top: 8px !important;
-        padding-bottom: 8px !important;
     }
     </style>
     """,
@@ -501,20 +489,18 @@ with col2:
   selected_date = st.date_input('日付', now_jst.date())
 
 with col3:
-  # 00:00 〜 23:00 の全24時間を常時リストに保持（過去の時間も選択可能）
-  hours_list = [f'{h:02d}:00' for h in range(24)]
+  # 次の時間（現在時刻 + 1時間）を基準にリストを作成
+  next_hour = (now_jst.hour + 1) % 24
 
-  # 「現在の次の時間（+1時間）」を初期選択インデックスに設定
-  # ※選択中の日付が今日の場合のみ「次の時間」をデフォルトにし、過去/未来の日付なら00:00を選択
-  if selected_date == now_jst.date():
-    default_index = min(now_jst.hour + 1, 23)
-  else:
-    default_index = 0
+  # 「次の時間」を先頭（13:00, 14:00, 15:00 ...）にして24時間分並べる
+  all_hours = [(next_hour + i) % 24 for i in range(24)]
+  hours_list = [f'{h:02d}:00' for h in all_hours]
 
+  # 先頭（index=0）が「次の時間」になるため、開いた瞬間一番上から14:00, 15:00...と表示されます
   selected_hour_str = st.selectbox(
       '時刻 (JST)',
       hours_list,
-      index=default_index,
+      index=0,
   )
   selected_hour = int(selected_hour_str.split(':')[0])
 
