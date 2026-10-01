@@ -442,7 +442,7 @@ def generate_map_figure(
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# 全体フォント設定およびプルダウンタップ判定・位置調整CSS
+# 全体フォント設定およびプルダウン表示高さ制御CSS
 st.markdown(
     """
     <style>
@@ -456,9 +456,18 @@ st.markdown(
     div[data-baseweb="select"] * {
         cursor: pointer !important;
     }
-    /* ドロップダウンメニューのスクロール位置が端末で正しく中央表示されるようスタイル調整 */
-    ul[role="listbox"] {
-        max-height: 280px !important;
+
+    /* メニュー表示領域の高さを十分に広げて下部（14:00以降）が切れないように強制設定 */
+    div[data-baseweb="popover"] > div,
+    ul[role="listbox"],
+    div[role="listbox"] {
+        max-height: 450px !important;
+    }
+
+    /* 各項目の縦余白を調整し、一度に表示できる件数を増やす */
+    li[role="option"] {
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
     }
     </style>
     """,
