@@ -307,7 +307,7 @@ def generate_map_figure(
   }
   model_name = model_display_names.get(model_code, model_code)
 
-  # 最上部タイトル（対象の予想日時）
+  # 最上部タイトル（日本語と英数字の視認性を高めたフォント優先指定）
   dt_str = target_datetime.strftime('%Y年%m月%d日 %H:00 JST')
   fig.suptitle(
       f'出発時刻の予想風 （ {dt_str} / モデル: {model_name}）',
@@ -315,6 +315,13 @@ def generate_map_figure(
       fontweight='bold',
       color='#1A365D',
       y=0.97,
+      fontfamily=[
+          'Arial',
+          'Helvetica',
+          'IPAGothic',
+          'IPAexGothic',
+          'sans-serif',
+      ],
   )
 
   # 中央の地図用Axes
