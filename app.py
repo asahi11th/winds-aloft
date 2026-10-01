@@ -307,7 +307,7 @@ def generate_map_figure(
   }
   model_name = model_display_names.get(model_code, model_code)
 
-  # 最上部タイトル（日本語と英数字の視認性を高めたフォント優先指定）
+  # 最上部タイトル（斜線の入らないすっきりした標準フォント）
   dt_str = target_datetime.strftime('%Y年%m月%d日 %H:00 JST')
   fig.suptitle(
       f'出発時刻の予想風 （ {dt_str} / モデル: {model_name}）',
@@ -438,9 +438,9 @@ def generate_map_figure(
       txt = cell.get_text()
       txt.set_clip_on(False)
 
-      # 数字・英字の見やすさを最優先したフォント設定（等幅＋自動フォールバック）
+      # 0に斜線が入らないクリーンで読みやすい標準フォント指定（Arial / IPAGothic 等）
       txt.set_fontfamily(
-          ['Consolas', 'DejaVu Sans', 'IPAGothic', 'sans-serif']
+          ['Arial', 'Helvetica', 'IPAGothic', 'IPAexGothic', 'sans-serif']
       )
 
       if r == 0:
@@ -456,7 +456,7 @@ def generate_map_figure(
 
         txt.set_color('#000000')
         txt.set_fontsize(12.0)
-        txt.set_weight('bold')  # 数値の視認性を高めるため太字化
+        txt.set_weight('bold')
 
     # 引出線
     conn_x, conn_y = loc['conn']
