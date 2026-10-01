@@ -20,8 +20,14 @@ for font_path in glob.glob('/usr/share/fonts/**/*.[o|t]tf', recursive=True):
   except Exception:
     pass
 
-# 日本語フォントを優先設定
-plt.rcParams['font.family'] = ['IPAGothic', 'IPAexGothic', 'sans-serif']
+# 全体で斜線やドットの入らないきれいな標準フォント（Arial / IPAGothic 等）を優先設定
+plt.rcParams['font.family'] = [
+    'Arial',
+    'Helvetica',
+    'IPAGothic',
+    'IPAexGothic',
+    'sans-serif',
+]
 plt.rcParams['axes.unicode_minus'] = False
 
 # 8地点の定義（名称・緯度・経度・表の配置位置・引出線接続位置）
@@ -307,7 +313,7 @@ def generate_map_figure(
   }
   model_name = model_display_names.get(model_code, model_code)
 
-  # 【修正部分】タイトルのみ斜線の入らない標準的な見やすいフォント(Arial / IPAGothic 等)を優先指定
+  # メインタイトル（斜線の入らない綺麗な数字フォント）
   dt_str = target_datetime.strftime('%Y年%m月%d日 %H:00 JST')
   fig.suptitle(
       f'出発時刻の予想風 （ {dt_str} / モデル: {model_name}）',
@@ -416,6 +422,13 @@ def generate_map_figure(
         color='#1A365D',
         transform=ax_table.transAxes,
         va='bottom',
+        fontfamily=[
+            'Arial',
+            'Helvetica',
+            'IPAGothic',
+            'IPAexGothic',
+            'sans-serif',
+        ],
     )
 
     # 表の作成
@@ -438,9 +451,9 @@ def generate_map_figure(
       txt = cell.get_text()
       txt.set_clip_on(False)
 
-      # 表セル内は元通りの等幅フォント(Consolas系)に戻す
+      # ★斜線や黒丸（点）のつかないきれいな標準数字フォント（Arial / IPAGothic 等）を指定
       txt.set_fontfamily(
-          ['Consolas', 'DejaVu Sans Mono', 'monospace', 'IPAGothic']
+          ['Arial', 'Helvetica', 'IPAGothic', 'IPAexGothic', 'sans-serif']
       )
 
       if r == 0:
@@ -490,6 +503,13 @@ def generate_map_figure(
       ha='right',
       va='bottom',
       style='italic',
+      fontfamily=[
+          'Arial',
+          'Helvetica',
+          'IPAGothic',
+          'IPAexGothic',
+          'sans-serif',
+      ],
   )
 
   return fig
@@ -591,7 +611,7 @@ if 'pdf_data' not in st.session_state:
 MODEL_OPTIONS = {
     'ECMWF (欧州中期予報センター)': 'ECMWF',
     '気象庁 JMA (日本)': 'JMA',
-    'GFS (アメリカ海洋大気庁)': 'GFS',
+    'GFS (アメリカ海洋大气庁)': 'GFS',
     'ICON (ドイツ気象庁)': 'ICON',
 }
 
