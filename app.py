@@ -124,11 +124,19 @@ def calculate_isa_diff(alt_ft, temp_c):
     return round(temp_c - isa_temp)
 
 
-def fetch_ecmwf_data(lat, lon):
-    urls = [
-        "https://api.open-meteo.com/v1/ecmwf",
-        "https://api.open-meteo.com/v1/forecast",
-    ]
+def fetch_weather_data(lat, lon, model_choice):
+    """選択されたモデルに応じた気象データを取得"""
+    if model_choice == "気象庁 (JMA)":
+        urls = [
+            "https://api.open-meteo.com/v1/jma",
+            "https://api.open-meteo.com/v1/forecast",
+        ]
+    else:  # ECMWF (デフォルト)
+        urls = [
+            "https://api.open-meteo.com/v1/ecmwf",
+            "https://api.open-meteo.com/v1/forecast",
+        ]
+
     hourly_vars = [
         "temperature_2m",
         "wind_speed_10m",
@@ -220,15 +228,15 @@ def process_location_data(data_json, target_datetime):
     return rows
 
 
-def generate_map_figure(all_location_data, geojson_data, target_datetime):
+def generate_map_figure(all_location_data, geojson_data, target_datetime, model_choice):
     """カラー着色された地図・表・引出線を描画したMatplotlib Figureを生成"""
     fig = plt.figure(figsize=(16, 11), dpi=200, facecolor="white")
 
-    # 最上部タイトル（絵文字を排除して文字化けを完全防止）
+    # 最上部タイトル
     dt_str = target_datetime.strftime("%Y年%m月%d日 %H:00 JST")
     fig.suptitle(
-        f"Winds Aloft 予想風 （対象日時: {dt_str}）",
-        fontsize=17,
+        f"Winds Aloft 予想風 （対象日時: {dt_str} / モデル: {model_choice}）",
+        fontsize=16,
         fontweight="bold",
         color="#1A365D",
         y=0.97,
@@ -363,11 +371,12 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime):
         )
         fig.add_artist(con)
 
-    # 右下のデータ参照元注記
+    # 右下のデータ参照元注記（選択されたモデルを表示）
+    source_label = "JMA (GSM Model)" if model_choice == "気象庁 (JMA)" else "ECMWF (IFS Model)"
     fig.text(
         0.985,
         0.005,
-        "Data Source: ECMWF (IFS Model) via Open-Meteo",
+        f"Data Source: {source_label} via Open-Meteo",
         fontsize=8.0,
         color="#4A5568",
         ha="right",
@@ -383,19 +392,30 @@ st.set_page_config(page_title="Winds Aloft 予想風作成", layout="wide")
 
 st.title("Winds Aloft 予想風 出力")
 st.caption(
-    "Data Source: ECMWF (IFS) via Open-Meteo | Wind: °M / kt | Temp: °C"
+    "Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C"
 )
 
 # 現在の日本時間（JST）を自動取得
 jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
 
-col1, col2, col3 = st.columns([2, 2, 3])
+# 操作パネル（4列構成）
+col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
+
 with col1:
-    # 初期値を開いた時点の「今日の日付」に設定
-    selected_date = st.date_input("日付を選択", now_jst.date())
+    # 気象モデルの選択（デフォルト: ECMWF）
+    model_choice = st.selectbox(
+        "気象モデルを選択",
+        ["ECMWF (IFS)", "気象庁 (JMA)"],
+        index=0
+    )
+
 with col2:
-    # 初期値を開いた時点の「現在の時刻（時）」に設定
+    # 日付選択（デフォルト: 今日）
+    selected_date = st.date_input("日付を選択", now_jst.date())
+
+with col3:
+    # 時刻選択（デフォルト: 現在時刻）
     selected_hour = st.slider(
         "時刻を選択 (JST)", min_value=0, max_value=23, value=now_jst.hour, format="%02d:00"
     )
@@ -404,24 +424,24 @@ target_datetime = datetime.combine(
     selected_date, datetime.min.time()
 ) + timedelta(hours=selected_hour)
 
-if st.button("Open-Meteoからデータ取得＆予想風を作成", type="primary"):
-    with st.spinner("気象データを取得してカラー地図を生成中..."):
+if st.button("データ取得＆予想風を作成", type="primary"):
+    with st.spinner(f"{model_choice} からデータを取得してカラー地図を生成中..."):
         geojson_data = get_japan_geojson()
         all_location_data = {}
 
         for loc in LOCATIONS_CONFIG:
             try:
-                data_json = fetch_ecmwf_data(loc["lat"], loc["lon"])
+                data_json = fetch_weather_data(loc["lat"], loc["lon"], model_choice)
                 rows = process_location_data(data_json, target_datetime)
                 all_location_data[loc["name"]] = rows
             except Exception as e:
                 st.error(f"{loc['name']} の取得失敗: {e}")
 
         # カラー図の描画
-        fig = generate_map_figure(all_location_data, geojson_data, target_datetime)
+        fig = generate_map_figure(all_location_data, geojson_data, target_datetime, model_choice)
 
         st.success(
-            f"取得日時: **{selected_date.strftime('%Y年%m月%d日')} {selected_hour:02d}:00 JST** の予想風"
+            f"取得日時: **{selected_date.strftime('%Y年%m月%d日')} {selected_hour:02d}:00 JST** （モデル: **{model_choice}**）"
         )
 
         # 画面にプレビュー表示
@@ -437,7 +457,8 @@ if st.button("Open-Meteoからデータ取得＆予想風を作成", type="prima
         )
         pdf_buffer.seek(0)
 
-        filename = f"WindsAloft_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
+        model_tag = "JMA" if model_choice == "気象庁 (JMA)" else "ECMWF"
+        filename = f"WindsAloft_{model_tag}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
 
         st.download_button(
             label="📄 この図をPDFとしてダウンロード",
