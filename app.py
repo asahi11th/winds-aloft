@@ -392,7 +392,7 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime):
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title="Winds Aloft 予想風作成", layout="wide")
 
-st.title("✈️ Winds Aloft 予想風 自動生成アプリ")
+st.title("✈️ Winds Aloft 予想風 出力")
 st.caption(
     "Data Source: ECMWF (IFS) via Open-Meteo | Wind: °M / kt | Temp: °C"
 )
