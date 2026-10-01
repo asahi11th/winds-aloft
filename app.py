@@ -125,19 +125,19 @@ def calculate_isa_diff(alt_ft, temp_c):
   return round(temp_c - isa_temp)
 
 
-def fetch_weather_data(lat, lon, model_choice):
-  """選択されたモデルに応じた気象データを取得"""
-  if '気象庁' in model_choice or 'JMA' in model_choice:
+def fetch_weather_data(lat, lon, model_code):
+  """選択されたモデルコードに応じた気象データを取得"""
+  if model_code == 'JMA':
     urls = [
         'https://api.open-meteo.com/v1/jma',
         'https://api.open-meteo.com/v1/forecast',
     ]
-  elif 'GFS' in model_choice:
+  elif model_code == 'GFS':
     urls = [
         'https://api.open-meteo.com/v1/gfs',
         'https://api.open-meteo.com/v1/forecast',
     ]
-  elif 'ICON' in model_choice:
+  elif model_code == 'ICON':
     urls = [
         'https://api.open-meteo.com/v1/dwd-icon',
         'https://api.open-meteo.com/v1/forecast',
@@ -292,15 +292,24 @@ def process_location_data(data_json, target_datetime):
 
 
 def generate_map_figure(
-    all_location_data, geojson_data, target_datetime, model_choice
+    all_location_data, geojson_data, target_datetime, model_code
 ):
   """カラー着色された地図・表・引出線を描画したMatplotlib Figureを生成"""
   fig = plt.figure(figsize=(16, 11), dpi=200, facecolor='white')
 
+  # データタイトル用のモデル表記（純粋な英語表記）
+  model_display_names = {
+      'ECMWF': 'ECMWF (IFS)',
+      'JMA': 'JMA (GSM)',
+      'GFS': 'GFS (NOAA)',
+      'ICON': 'ICON (DWD)',
+  }
+  model_name = model_display_names.get(model_code, model_code)
+
   # 最上部タイトル（対象の予想日時）
   dt_str = target_datetime.strftime('%Y年%m月%d日 %H:00 JST')
   fig.suptitle(
-      f'出発時刻の予想風 （ {dt_str} / モデル: {model_choice}）',
+      f'出発時刻の予想風 （ {dt_str} / モデル: {model_name}）',
       fontsize=16,
       fontweight='bold',
       color='#1A365D',
@@ -455,17 +464,14 @@ def generate_map_figure(
     )
     fig.add_artist(con)
 
-  # 右下のデータ参照元注記表記の対応付け
-  if 'ECMWF' in model_choice:
-    source_label = 'ECMWF (IFS Model)'
-  elif '気象庁' in model_choice or 'JMA' in model_choice:
-    source_label = 'JMA (GSM Model)'
-  elif 'GFS' in model_choice:
-    source_label = 'NOAA (GFS Model)'
-  elif 'ICON' in model_choice:
-    source_label = 'DWD (ICON Model)'
-  else:
-    source_label = model_choice
+  # 右下のデータ参照元注記表記（英語表記）
+  source_dict = {
+      'ECMWF': 'ECMWF (IFS Model)',
+      'JMA': 'JMA (GSM Model)',
+      'GFS': 'NOAA (GFS Model)',
+      'ICON': 'DWD (ICON Model)',
+  }
+  source_label = source_dict.get(model_code, model_code)
 
   fig.text(
       0.985,
@@ -524,20 +530,20 @@ if 'pdf_data' not in st.session_state:
   st.session_state.fig = None
   st.session_state.info_text = ''
 
+# プルダウンの表示名と内部処理用コードのマップ
+MODEL_OPTIONS = {
+    'ECMWF (欧州中期予報センター)': 'ECMWF',
+    '気象庁 JMA (日本)': 'JMA',
+    'GFS (アメリカ海洋大気庁)': 'GFS',
+    'ICON (ドイツ気象庁)': 'ICON',
+}
+
 # --- 1行目：操作パネル ---
-col1, col2, col3, col4, _ = st.columns([1.8, 1.1, 0.9, 1.2, 1.1])
+col1, col2, col3, col4, _ = st.columns([1.6, 1.0, 0.9, 1.2, 1.3])
 
 with col1:
-  model_choice = st.selectbox(
-      '気象モデル',
-      [
-          'ECMWF (IFS / 欧州中期予報センター)',
-          '気象庁 JMA (GSM / 日本)',
-          'GFS (NOAA / アメリカ海洋大気庁)',
-          'ICON (DWD / ドイツ気象庁)',
-      ],
-      index=0,
-  )
+  selected_label = st.selectbox('気象モデル', list(MODEL_OPTIONS.keys()), index=0)
+  model_code = MODEL_OPTIONS[selected_label]
 
 with col2:
   selected_date = st.date_input('日付', now_jst.date())
@@ -579,13 +585,13 @@ target_datetime = datetime.combine(
 # --- 2行目：データ取得＆予想風を作成 ボタン ---
 st.write('')
 if st.button('データ取得＆予想風を作成', type='primary'):
-  with st.spinner(f'{model_choice} からデータを取得&表を作成中...'):
+  with st.spinner(f'{model_code} からデータを取得&表を作成中...'):
     geojson_data = get_japan_geojson()
     all_location_data = {}
 
     for loc in LOCATIONS_CONFIG:
       try:
-        data_json = fetch_weather_data(loc['lat'], loc['lon'], model_choice)
+        data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
         rows = process_location_data(data_json, target_datetime)
         all_location_data[loc['name']] = rows
       except Exception as e:
@@ -593,7 +599,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
 
     # カラー図の描画
     fig = generate_map_figure(
-        all_location_data, geojson_data, target_datetime, model_choice
+        all_location_data, geojson_data, target_datetime, model_code
     )
 
     # PDF用バッファ生成
@@ -606,19 +612,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     )
     pdf_buffer.seek(0)
 
-    # ファイル名用モデルタグの対応付け
-    if 'ECMWF' in model_choice:
-      model_tag = 'ECMWF'
-    elif '気象庁' in model_choice or 'JMA' in model_choice:
-      model_tag = 'JMA'
-    elif 'GFS' in model_choice:
-      model_tag = 'GFS'
-    elif 'ICON' in model_choice:
-      model_tag = 'ICON'
-    else:
-      model_tag = 'MODEL'
-
-    filename = f"WindsAloft_{model_tag}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
+    filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
 
     # ボタンを押した現在日時（JST）を取得
     executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
@@ -630,7 +624,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     st.session_state.info_text = (
         f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
         f' <b>{selected_date.strftime("%Y年%m月%d日")}'
-        f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_choice}</b>）'
+        f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_code}</b>）'
     )
 
     st.rerun()
