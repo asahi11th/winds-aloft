@@ -512,70 +512,57 @@ def generate_map_figure(
   return fig
 
 
-def render_takeoff_loading_css():
-  """離陸アニメーション用のカスタムCSS（1回のみ離陸・コンパクト表示）"""
-  st.markdown(
-      """
-    <style>
-    @keyframes runwayTakeoffOnce {
-        0% {
-            left: 0%;
-            bottom: 2px;
-            transform: rotate(0deg);
-            opacity: 1;
-        }
-        60% {
-            left: 60%;
-            bottom: 2px;
-            transform: rotate(0deg);
-            opacity: 1;
-        }
-        85% {
-            left: 85%;
-            bottom: 15px;
-            transform: rotate(-15deg);
-            opacity: 1;
-        }
-        100% {
-            left: 100%;
-            bottom: 35px;
-            transform: rotate(-25deg);
-            opacity: 0.8;
-        }
-    }
+def render_runway_html(progress_pct, is_takeoff=False):
+  """進捗％と連動した滑走路HTMLを出力"""
+  # 地上滑走（0%〜80%）と離陸（100%）の位置・角度の計算
+  if is_takeoff:
+    plane_left = 92
+    plane_bottom = 28
+    plane_rotate = -22
+  else:
+    # 0〜80%の進捗を、滑走路幅の0%〜75%位置へマッピング
+    plane_left = min(75, int(progress_pct * 0.9))
+    plane_bottom = 2
+    plane_rotate = 0
 
-    .runway-container {
+  html_code = f"""
+    <style>
+    .runway-container {{
         position: relative;
         width: 100%;
         max-width: 500px;
-        height: 45px;
+        height: 48px;
         background-color: #f0f4f8;
         border-radius: 6px;
         overflow: hidden;
-        margin: 10px 0;
+        margin: 8px 0;
         border: 1px solid #cbd5e1;
-    }
-
-    .runway-line {
+    }}
+    .runway-line {{
         position: absolute;
         bottom: 10px;
         left: 0;
         width: 100%;
         height: 2px;
         border-top: 2px dashed #94a3b8;
-    }
-
-    .plane-icon {
+    }}
+    .plane-icon {{
         position: absolute;
         font-size: 20px;
         line-height: 1;
-        animation: runwayTakeoffOnce 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        left: {plane_left}%;
+        bottom: {plane_bottom}px;
+        transform: rotate({plane_rotate}deg);
+        transition: all 0.4s ease-out;
         z-index: 10;
-    }
+    }}
     </style>
-    """,
-      unsafe_allow_html=True,
-  )
+    <div class="runway-container">
+        <div class="runway-line"></div>
+        <div class="plane-icon">🛫</div>
+    </div>
+    """
+  return html_code
 
 
 # --- Streamlit 画面構成 ---
@@ -717,34 +704,30 @@ target_datetime = datetime.combine(
 # --- 2行目：データ取得＆予想風を作成 ボタン ---
 st.write('')
 if st.button('データ取得＆予想風を作成', type='primary'):
-  # 離陸アニメーション用CSSの読み込み
-  render_takeoff_loading_css()
-
-  # ロード中用コンテナの作成
   loading_container = st.container()
 
   with loading_container:
-    st.markdown(
-        """
-        <div class="runway-container">
-            <div class="runway-line"></div>
-            <div class="plane-icon">🛫</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    plane_box = st.empty()
     status_text = st.empty()
 
-    # 1. GeoJSON（日本地図データ）取得
+    # 初期位置（0%）
+    plane_box.markdown(render_runway_html(0), unsafe_allow_html=True)
+
+    # 1. 地図データ取得
     status_text.markdown('**[1/3]** 日本地図データを準備中...')
     geojson_data = get_japan_geojson()
 
-    # 2. 各地点の気象データ取得 (8地点)
+    # 2. 気象データ取得（8地点）
     all_location_data = {}
-    for loc in LOCATIONS_CONFIG:
+    total_locs = len(LOCATIONS_CONFIG)
+
+    for i, loc in enumerate(LOCATIONS_CONFIG, 1):
+      pct = int((i / total_locs) * 80)
+      plane_box.markdown(render_runway_html(pct), unsafe_allow_html=True)
       status_text.markdown(
           f'**[2/3]** 気象データ（{model_code}）を取得中: **{loc["name"]}**'
       )
+
       try:
         data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
         rows = process_location_data(data_json, target_datetime)
@@ -752,15 +735,14 @@ if st.button('データ取得＆予想風を作成', type='primary'):
       except Exception as e:
         st.error(f"{loc['name']} の取得失敗: {e}")
 
-    # 3. 図・地図表・PDFの作成
+    # 3. レイアウトとPDF生成
     status_text.markdown(
-        '**[3/3]** 高度別予想風のレイアウトと表を描画中...'
+        '**[3/3]** 高度別予想風の表とPDFを出力中...'
     )
     fig = generate_map_figure(
         all_location_data, geojson_data, target_datetime, model_code
     )
 
-    status_text.markdown('**[3/3]** PDF形式のファイルを出力中...')
     pdf_buffer = io.BytesIO()
     fig.savefig(
         pdf_buffer,
@@ -770,10 +752,14 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     )
     pdf_buffer.seek(0)
 
+    # 🎉 完了時（100%）にぴったりテイクオフ！
+    plane_box.markdown(
+        render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
+    )
     status_text.markdown('✨ **テイクオフ！完成しました。**')
-    time.sleep(0.3)
+    time.sleep(0.6)
 
-  # ロード中コンテナを消去して画面を切り替え
+  # ロード中コンテナを消去して画面切り替え
   loading_container.empty()
 
   filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
