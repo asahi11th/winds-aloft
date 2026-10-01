@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 # サーバーにインストールされたフォントをMatplotlibへ直接読み込ませる
 for font_path in glob.glob('/usr/share/fonts/**/*.[o|t]tf', recursive=True):
@@ -487,19 +488,16 @@ def generate_map_figure(
   return fig
 
 
-import streamlit.components.v1 as components
-
 # --- Streamlit 画面構成 ---
-st.set_page_config(page_title="🛫Winds Aloft 予想風作成🛫", layout="wide")
+st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# 1. 全体フォント設定および基本CSS
+# 全体フォント設定およびプルダウンカーソル設定CSS
 st.markdown(
     """
     <style>
     html, body, [class*="css"] {
         font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important;
     }
-    /* ドロップダウンや日付選択全体をタップ可能にする */
     div[data-baseweb="select"],
     div[data-baseweb="input"],
     div[data-baseweb="popover"] {
@@ -511,38 +509,35 @@ st.markdown(
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
-# 2. iPad / iOS向け ソフトウェアキーボード制御JavaScript
+# プルダウン選択時の自動クローズ制御JavaScript
 components.html(
     """
     <script>
-    const suppressKeyboard = () => {
-        // 親ウィンドウ（Streamlit本体）のDOMを取得
+    const setupDropdownBehavior = () => {
         const doc = window.parent.document;
+        const dropdownContainers = doc.querySelectorAll('div[data-baseweb="select"], div[data-baseweb="input"]');
         
-        // SelectboxやDateInput内のinput要素をすべて取得
-        const inputs = doc.querySelectorAll('div[data-baseweb="select"] input, div[data-baseweb="input"] input');
-        
-        inputs.forEach(input => {
-            // 読み取り専用属性を付与（iOSでのキーボード起動を制御）
-            input.setAttribute('readonly', 'readonly');
-            input.setAttribute('inputmode', 'none');
-            
-            // フォーカスが入った瞬間にフォーカスを外してキーボードを閉じる
-            input.addEventListener('focus', (e) => {
-                input.blur();
-            });
+        dropdownContainers.forEach(container => {
+            if (container.dataset.hasCloseListener) return;
+            container.dataset.hasCloseListener = "true";
+
+            container.addEventListener('click', (e) => {
+                const openPopovers = doc.querySelectorAll('div[data-baseweb="popover"]');
+                if (openPopovers.length > 0) {
+                    doc.body.click();
+                }
+            }, true);
         });
     };
 
-    # 画面描画時および定期的にDOMを監視して適用
-    setInterval(suppressKeyboard, 500);
+    setInterval(setupDropdownBehavior, 300);
     </script>
     """,
     height=0,
-    width=0
+    width=0,
 )
 
 st.title('🛫Winds Aloft 予想風 出力🛫')
