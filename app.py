@@ -370,7 +370,7 @@ def generate_map_figure(
           zorder=5,
       )
     else:
-      # 非空港地点（淡路・姫路・和歌山など）は落ち着いたグレーピン
+      # 非空港地点は落ち着いたグレーピン
       ax_map.scatter(
           lon,
           lat,
@@ -525,17 +525,17 @@ with col2:
   selected_date = st.date_input('日付', now_jst.date())
 
 with col3:
-  # 次の時間（現在時刻 + 1時間）を基準にリストを作成
-  next_hour = (now_jst.hour + 1) % 24
+  # 現在時刻の時間（13:13 なら 13）を基準にリストを作成
+  current_hour = now_jst.hour
 
-  # 「次の時間」を先頭にして24時間分並べる
-  all_hours = [(next_hour + i) % 24 for i in range(24)]
+  # 現在の時間を先頭にして24時間分を順番に並べる
+  all_hours = [(current_hour + i) % 24 for i in range(24)]
   hours_list = [f'{h:02d}:00' for h in all_hours]
 
   selected_hour_str = st.selectbox(
       '時刻 (JST)',
       hours_list,
-      index=0,
+      index=0,  # 先頭（＝現在の時間）を初期選択
   )
   selected_hour = int(selected_hour_str.split(':')[0])
 
