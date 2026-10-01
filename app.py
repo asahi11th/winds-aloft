@@ -390,30 +390,33 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime, model_
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title="Winds Aloft 予想風作成", layout="wide")
 
-# CSSの修正（180pxの幅固定を解除）
+# 全体フォントをメイリオ指定するCSS
 st.markdown(
     """
     <style>
     html, body, [class*="css"] {
         font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important;
     }
+    /* ボタンの余計な上部余白を揃える */
+    div[st-deckglow] {
+        vertical-align: bottom;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("🛫Winds Aloft 予想風 出力🛫")
+st.title("Winds Aloft 予想風 出力")
 st.caption("Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C")
 
 # 現在の日本時間（JST）を自動取得
 jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
 
-# 操作パネル（文字数に合わせて列幅をコンパクトに調整）
-col1, col2, col3, _ = st.columns([1.5, 1.2, 1.0, 3.0])
+# 操作パネル：気象モデル / 日付 / 時刻 / PDF作成ボタン を1行に並べる
+col1, col2, col3, col4, _ = st.columns([1.3, 1.1, 0.9, 1.8, 1.0])
 
 with col1:
-    # 気象モデルの選択（デフォルト: ECMWF）
     model_choice = st.selectbox(
         "気象モデル",
         ["ECMWF (IFS)", "気象庁 (JMA)"],
@@ -421,32 +424,43 @@ with col1:
     )
 
 with col2:
-    # 日付選択（デフォルト: 今日）
     selected_date = st.date_input("日付", now_jst.date())
 
 with col3:
-    # 時刻選択プルダウン（00:00 〜 23:00、初期値は現在時刻）
     hours_list = [f"{h:02d}:00" for h in range(24)]
     selected_hour_str = st.selectbox(
         "時刻 (JST)",
         hours_list,
         index=now_jst.hour,
     )
-    # 文字列 "09:00" などから数値（9）を取得
     selected_hour = int(selected_hour_str.split(":")[0])
 
 target_datetime = datetime.combine(
     selected_date, datetime.min.time()
 ) + timedelta(hours=selected_hour)
 
-if st.button("データ取得＆予想風を作成", type="primary"):
-    with st.spinner(f"{model_choice} からデータを取得&作成中..."):
+# セッション状態の初期化
+if "pdf_data" not in st.session_state:
+    st.session_state.pdf_data = None
+    st.session_state.pdf_filename = ""
+    st.session_state.fig = None
+
+with col4:
+    # ラベルとの高さを合わせるための空スペース
+    st.write(" ")
+    st.write(" ")
+    generate_btn = st.button("データ取得＆予想風を作成", type="primary", use_container_width=True)
+
+if generate_btn:
+    with st.spinner(f"{model_choice} からデータを取得してカラー地図を生成中..."):
         geojson_data = get_japan_geojson()
         all_location_data = {}
 
         for loc in LOCATIONS_CONFIG:
             try:
-                data_json = fetch_weather_data(loc["lat"], loc["lon"], model_choice)
+                data_json = fetch_weather_data(
+                    loc["lat"], loc["lon"], model_choice
+                )
                 rows = process_location_data(data_json, target_datetime)
                 all_location_data[loc["name"]] = rows
             except Exception as e:
@@ -457,14 +471,7 @@ if st.button("データ取得＆予想風を作成", type="primary"):
             all_location_data, geojson_data, target_datetime, model_choice
         )
 
-        st.success(
-            f"取得日時: **{selected_date.strftime('%Y年%m月%d日')} {selected_hour:02d}:00 JST** （モデル: **{model_choice}**）"
-        )
-
-        # 画面にプレビュー表示
-        st.pyplot(fig, use_container_width=True)
-
-        # PDFファイル出力ボタン
+        # PDF用バッファ生成
         pdf_buffer = io.BytesIO()
         fig.savefig(
             pdf_buffer,
@@ -477,11 +484,26 @@ if st.button("データ取得＆予想風を作成", type="primary"):
         model_tag = "JMA" if model_choice == "気象庁 (JMA)" else "ECMWF"
         filename = f"WindsAloft_{model_tag}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
 
-        st.download_button(
-            label="📄 この図をPDFとしてダウンロード",
-            data=pdf_buffer,
-            file_name=filename,
-            mime="application/pdf",
-            type="secondary",
-        )
-        plt.close(fig)
+        # セッション状態に保存（再描画時もPDFダウンロードボタンを維持するため）
+        st.session_state.pdf_data = pdf_buffer.getvalue()
+        st.session_state.pdf_filename = filename
+        st.session_state.fig = fig
+        st.session_state.info_text = f"取得日時: **{selected_date.strftime('%Y年%m月%d日')} {selected_hour:02d}:00 JST** （モデル: **{model_choice}**）"
+
+# 結果が生成されている場合は画面描画とPDFボタンを表示
+if st.session_state.fig is not None:
+    # 時刻プルダウンの右隣のカラム（col4）または追加カラムにPDFダウンロードボタンを表示したい場合
+    st.success(st.session_state.info_text)
+
+    # 画面にプレビュー表示
+    st.pyplot(st.session_state.fig, use_container_width=True)
+
+    # 図の下にもダウンロードボタンを配置（使いやすさのため）
+    st.download_button(
+        label="📄 この図をPDFとしてダウンロード",
+        data=st.session_state.pdf_data,
+        file_name=st.session_state.pdf_filename,
+        mime="application/pdf",
+        type="secondary",
+        key="download_bottom",
+    )
