@@ -442,7 +442,7 @@ def generate_map_figure(
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# ポップアップメニュー展開位置の自動調整とスクロール枠補正CSS
+# 下側に切れ込まないためのポップアップメニュー位置調整・スクロール補正CSS
 st.markdown(
     """
     <style>
@@ -456,20 +456,17 @@ st.markdown(
         cursor: pointer !important;
     }
 
-    /* ポップアップメニューの高さと余白を制御し、下側の時間（14:00〜）が見えるように位置ずれを修正 */
-    div[data-baseweb="popover"] {
-        margin-bottom: 80px !important;
-    }
+    /* ポップアップメニューが選択中の項目を中心に上限・下限を確保して表示されるよう補正 */
     div[data-baseweb="popover"] > div,
     ul[role="listbox"],
     div[role="listbox"] {
-        max-height: 380px !important;
-        padding-bottom: 40px !important;
+        max-height: 280px !important;
+        overflow-y: auto !important;
     }
 
     li[role="option"] {
-        padding-top: 6px !important;
-        padding-bottom: 6px !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
     }
     </style>
     """,
@@ -504,16 +501,20 @@ with col2:
   selected_date = st.date_input('日付', now_jst.date())
 
 with col3:
-  # 00:00 〜 23:00 の自然な標準時系列順リスト
+  # 00:00 〜 23:00 の全24時間を常時リストに保持（過去の時間も選択可能）
   hours_list = [f'{h:02d}:00' for h in range(24)]
 
-  # 「次の時間（現在時刻 + 1時間）」を初期選択位置として指定
-  next_hour = min(now_jst.hour + 1, 23)
+  # 「現在の次の時間（+1時間）」を初期選択インデックスに設定
+  # ※選択中の日付が今日の場合のみ「次の時間」をデフォルトにし、過去/未来の日付なら00:00を選択
+  if selected_date == now_jst.date():
+    default_index = min(now_jst.hour + 1, 23)
+  else:
+    default_index = 0
 
   selected_hour_str = st.selectbox(
       '時刻 (JST)',
       hours_list,
-      index=next_hour,
+      index=default_index,
   )
   selected_hour = int(selected_hour_str.split(':')[0])
 
