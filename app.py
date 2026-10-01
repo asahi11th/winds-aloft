@@ -267,12 +267,14 @@ def process_location_data(data_json, target_datetime):
     ws_interp = math.hypot(u_interp, v_interp)
     wd_true = (math.degrees(math.atan2(-u_interp, -v_interp)) + 360) % 360
 
-    # 磁方位計算（North 360°表記対応）
+    # 磁方位計算（North 360°表記対応：000Mは存在せず360Mとする）
     wd_mag = (wd_true + MAG_VARIATION) % 360
-    if round(wd_mag) == 0 or round(wd_mag) == 360:
+    wd_mag_rounded = int(round(wd_mag))
+
+    if wd_mag_rounded == 0 or wd_mag_rounded == 360:
       wd_mag_str = '360'
     else:
-      wd_mag_str = f'{int(round(wd_mag)):03d}'
+      wd_mag_str = f'{wd_mag_rounded:03d}'
 
     isa_diff = calculate_isa_diff(target_alt, t_interp)
 
@@ -402,6 +404,11 @@ def generate_map_figure(
       txt = cell.get_text()
       txt.set_clip_on(False)
 
+      # 数字・英字の見やすさを最優先したフォント設定（等幅＋自動フォールバック）
+      txt.set_fontfamily(
+          ['Consolas', 'DejaVu Sans', 'IPAGothic', 'sans-serif']
+      )
+
       if r == 0:
         cell.set_facecolor('#2B6CB0')
         txt.set_color('white')
@@ -415,7 +422,7 @@ def generate_map_figure(
 
         txt.set_color('#000000')
         txt.set_fontsize(12.0)
-        txt.set_weight('normal')
+        txt.set_weight('bold')  # 数値の視認性を高めるため太字化
 
     # 引出線
     conn_x, conn_y = loc['conn']
