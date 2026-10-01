@@ -278,9 +278,12 @@ def process_location_data(data_json, target_datetime):
 
     isa_diff = calculate_isa_diff(target_alt, t_interp)
 
+    # 気温の表記：0℃以上はプラス記号なし、マイナス時のみ '-' を付与
+    temp_rounded = int(round(t_interp))
+
     rows.append([
         f'{target_alt}',
-        f'{int(round(t_interp)):+d}',
+        f'{temp_rounded}',
         f'{wd_mag_str}M / {int(round(ws_interp)):02d}',
         f'{isa_diff:+d}',
     ])
