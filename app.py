@@ -356,16 +356,30 @@ def generate_map_figure(
           [f'{alt}', '---', '---', '---'] for alt in TARGET_ALTITUDES
       ]
 
-    # 地図上のピン
-    ax_map.scatter(
-        lon,
-        lat,
-        color='#D9534F',
-        s=65,
-        zorder=5,
-        edgecolors='white',
-        linewidths=1.2,
-    )
+    # --- 地点プロット（空港判定で飛行機マークに変更） ---
+    is_airport = 'RJ' in name or '空港' in name
+
+    if is_airport:
+      # 飛行機マーク（✈）
+      ax_map.scatter(
+          lon,
+          lat,
+          marker='$✈$',
+          s=120,
+          color='#1A365D',
+          zorder=5,
+      )
+    else:
+      # 通常の赤丸ピン
+      ax_map.scatter(
+          lon,
+          lat,
+          color='#D9534F',
+          s=65,
+          zorder=5,
+          edgecolors='white',
+          linewidths=1.2,
+      )
 
     # 表用サブAxes
     rect = loc['rect']
