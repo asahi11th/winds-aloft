@@ -390,18 +390,12 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime, model_
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title="Winds Aloft 予想風作成", layout="wide")
 
-# 入力フォームの幅をコンパクトに抑えるためのカスタムCSS
+# CSSの修正（180pxの幅固定を解除）
 st.markdown(
     """
     <style>
-    div[data-baseweb="select"] {
-        max-width: 180px !important;
-    }
-    div[data-baseweb="calendar"] {
-        max-width: 180px !important;
-    }
-    .stDateInput > div {
-        max-width: 180px !important;
+    html, body, [class*="css"] {
+        font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important;
     }
     </style>
     """,
@@ -446,7 +440,7 @@ target_datetime = datetime.combine(
 ) + timedelta(hours=selected_hour)
 
 if st.button("データ取得＆予想風を作成", type="primary"):
-    with st.spinner(f"{model_choice} からデータを取得してカラー地図を生成中..."):
+    with st.spinner(f"{model_choice} からデータを取得&作成中..."):
         geojson_data = get_japan_geojson()
         all_location_data = {}
 
