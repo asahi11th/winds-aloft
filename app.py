@@ -510,13 +510,31 @@ st.markdown(
 )
 
 st.title('🛫Winds Aloft 予想風 出力🛫')
-st.caption(
-    'Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C\n\n'
-    '💡 **気象モデルの概要メモ**\n'
-    '- **ECMWF（欧州中期予報センター）**：世界最高水準の予測精度（標準・おすすめ）\n'
-    '- **気象庁 JMA（GSM）**：日本の気象庁による全体数値予報モデル（国内・近海に強み）\n'
-    '- **GFS（アメリカ海洋大気庁）**：米国NOAAによる世界モデル\n'
-    '- **ICON（ドイツ気象庁）**：ドイツ気象庁による高精度グローバルモデル'
+
+# 補足メモを小さく（11px）控えめに表示するカスタムHTML/CSS
+st.markdown(
+    """
+    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+        Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C
+    </div>
+    <div style="
+        font-size: 11px;
+        color: #718096;
+        background-color: #f8fafc;
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid #edf2f7;
+        margin-bottom: 16px;
+        line-height: 1.5;
+    ">
+        <span style="font-weight: bold; color: #4a5568;">💡 気象モデルメモ：</span>
+        <span style="margin-left: 6px;"><b>ECMWF</b> (最高精度/推奨)</span> | 
+        <span><b>JMA</b> (日本/国内強み)</span> | 
+        <span><b>GFS</b> (米国NOAA)</span> | 
+        <span><b>ICON</b> (ドイツ)</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 # 現在の日本時間（JST）を自動取得
