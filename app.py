@@ -402,7 +402,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("Winds Aloft 予想風 出力")
+st.title("🛫Winds Aloft 予想風 出力🛫")
 st.caption("Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C")
 
 # 現在の日本時間（JST）を自動取得
