@@ -442,14 +442,13 @@ def generate_map_figure(
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# 全体フォント設定およびプルダウン表示高さ制御CSS
+# ポップアップメニュー展開位置の自動調整とスクロール枠補正CSS
 st.markdown(
     """
     <style>
     html, body, [class*="css"] {
         font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important;
     }
-    /* プルダウンの枠内どこをタップしても反応するように設定 */
     div[data-baseweb="select"] {
         cursor: pointer !important;
     }
@@ -457,17 +456,20 @@ st.markdown(
         cursor: pointer !important;
     }
 
-    /* メニュー表示領域の高さを十分に広げて下部（14:00以降）が切れないように強制設定 */
+    /* ポップアップメニューの高さと余白を制御し、下側の時間（14:00〜）が見えるように位置ずれを修正 */
+    div[data-baseweb="popover"] {
+        margin-bottom: 80px !important;
+    }
     div[data-baseweb="popover"] > div,
     ul[role="listbox"],
     div[role="listbox"] {
-        max-height: 450px !important;
+        max-height: 380px !important;
+        padding-bottom: 40px !important;
     }
 
-    /* 各項目の縦余白を調整し、一度に表示できる件数を増やす */
     li[role="option"] {
-        padding-top: 8px !important;
-        padding-bottom: 8px !important;
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
     }
     </style>
     """,
