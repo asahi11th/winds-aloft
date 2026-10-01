@@ -482,15 +482,15 @@ with col2:
   selected_date = st.date_input('日付', now_jst.date())
 
 with col3:
-  # 現在時刻（時間）から24時間を並べる（現在時刻をリストの先頭にする）
-  current_h = now_jst.hour
-  hours_list = [f'{(current_h + i) % 24:02d}:00' for i in range(24)]
+  # 00:00 〜 23:00 の標準時系列順リスト
+  hours_list = [f'{h:02d}:00' for h in range(24)]
 
-  # 先頭（現在時刻）を初期選択
+  # 現在の時間をデフォルト選択（画面を開いた時に現在時刻にフォーカス）
+  current_hour = now_jst.hour
   selected_hour_str = st.selectbox(
       '時刻 (JST)',
       hours_list,
-      index=0,
+      index=current_hour,
   )
   selected_hour = int(selected_hour_str.split(':')[0])
 
