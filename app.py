@@ -132,6 +132,16 @@ def fetch_weather_data(lat, lon, model_choice):
         'https://api.open-meteo.com/v1/jma',
         'https://api.open-meteo.com/v1/forecast',
     ]
+  elif model_choice == 'GFS (NOAA)':
+    urls = [
+        'https://api.open-meteo.com/v1/gfs',
+        'https://api.open-meteo.com/v1/forecast',
+    ]
+  elif model_choice == 'ICON (DWD)':
+    urls = [
+        'https://api.open-meteo.com/v1/dwd-icon',
+        'https://api.open-meteo.com/v1/forecast',
+    ]
   else:  # ECMWF (デフォルト)
     urls = [
         'https://api.open-meteo.com/v1/ecmwf',
@@ -421,10 +431,15 @@ def generate_map_figure(
     )
     fig.add_artist(con)
 
-  # 右下のデータ参照元注記
-  source_label = (
-      'JMA (GSM Model)' if model_choice == '気象庁 (JMA)' else 'ECMWF (IFS Model)'
-  )
+  # 右下のデータ参照元注記表記の対応付け
+  source_dict = {
+      'ECMWF (IFS)': 'ECMWF (IFS Model)',
+      '気象庁 (JMA)': 'JMA (GSM Model)',
+      'GFS (NOAA)': 'NOAA (GFS Model)',
+      'ICON (DWD)': 'DWD (ICON Model)',
+  }
+  source_label = source_dict.get(model_choice, model_choice)
+
   fig.text(
       0.985,
       0.005,
@@ -476,12 +491,12 @@ if 'pdf_data' not in st.session_state:
   st.session_state.info_text = ''
 
 # --- 1行目：操作パネル ---
-col1, col2, col3, col4, _ = st.columns([1.3, 1.1, 0.9, 1.2, 1.6])
+col1, col2, col3, col4, _ = st.columns([1.5, 1.1, 0.9, 1.2, 1.4])
 
 with col1:
   model_choice = st.selectbox(
       '気象モデル',
-      ['ECMWF (IFS)', '気象庁 (JMA)'],
+      ['ECMWF (IFS)', '気象庁 (JMA)', 'GFS (NOAA)', 'ICON (DWD)'],
       index=0,
   )
 
@@ -492,11 +507,10 @@ with col3:
   # 次の時間（現在時刻 + 1時間）を基準にリストを作成
   next_hour = (now_jst.hour + 1) % 24
 
-  # 「次の時間」を先頭（13:00, 14:00, 15:00 ...）にして24時間分並べる
+  # 「次の時間」を先頭にして24時間分並べる
   all_hours = [(next_hour + i) % 24 for i in range(24)]
   hours_list = [f'{h:02d}:00' for h in all_hours]
 
-  # 先頭（index=0）が「次の時間」になるため、開いた瞬間一番上から14:00, 15:00...と表示されます
   selected_hour_str = st.selectbox(
       '時刻 (JST)',
       hours_list,
@@ -553,7 +567,14 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     )
     pdf_buffer.seek(0)
 
-    model_tag = 'JMA' if model_choice == '気象庁 (JMA)' else 'ECMWF'
+    # ファイル名用モデルタグの対応付け
+    model_tag_dict = {
+        'ECMWF (IFS)': 'ECMWF',
+        '気象庁 (JMA)': 'JMA',
+        'GFS (NOAA)': 'GFS',
+        'ICON (DWD)': 'ICON',
+    }
+    model_tag = model_tag_dict.get(model_choice, 'MODEL')
     filename = f"WindsAloft_{model_tag}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
 
     # ボタンを押した現在日時（JST）を取得
