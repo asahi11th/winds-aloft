@@ -360,25 +360,25 @@ def generate_map_figure(
     is_airport = 'RJ' in name or '空港' in name
 
     if is_airport:
-      # 飛行機マーク（✈）
+      # 視認性の高い赤色飛行機マーク
       ax_map.scatter(
           lon,
           lat,
           marker='$✈$',
-          s=120,
-          color='#1A365D',
+          s=130,
+          color='#C0392B',
           zorder=5,
       )
     else:
-      # 通常の赤丸ピン
+      # 非空港地点（淡路・姫路・和歌山など）は落ち着いたグレーピン
       ax_map.scatter(
           lon,
           lat,
-          color='#D9534F',
-          s=65,
+          color='#555555',
+          s=55,
           zorder=5,
           edgecolors='white',
-          linewidths=1.2,
+          linewidths=1.0,
       )
 
     # 表用サブAxes
