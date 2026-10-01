@@ -277,7 +277,7 @@ def generate_map_figure(
   """カラー着色された地図・表・引出線を描画したMatplotlib Figureを生成"""
   fig = plt.figure(figsize=(16, 11), dpi=200, facecolor='white')
 
-  # 最上部タイトル
+  # 最上部タイトル（対象の予想日時）
   dt_str = target_datetime.strftime('%Y年%m月%d日 %H:00 JST')
   fig.suptitle(
       f'出発時刻の予想風 （ {dt_str} / モデル: {model_choice}）',
@@ -367,9 +367,9 @@ def generate_map_figure(
         va='bottom',
     )
 
-    # 表の作成（colWidthsで各列の幅の比率を指定）
+    # 表の作成
     col_labels = ['高度(ft)', '気温(℃)', '風', 'ISA差']
-    col_widths = [0.22, 0.20, 0.38, 0.20]  # 風の列を広め(38%)に設定
+    col_widths = [0.22, 0.20, 0.38, 0.20]
 
     table = ax_table.table(
         cellText=table_data,
@@ -537,14 +537,17 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     model_tag = 'JMA' if model_choice == '気象庁 (JMA)' else 'ECMWF'
     filename = f"WindsAloft_{model_tag}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
 
+    # ボタンを押した現在日時（JST）を取得
+    executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
+
     # セッションに保存してボタンをアクティブ化
     st.session_state.pdf_data = pdf_buffer.getvalue()
     st.session_state.pdf_filename = filename
     st.session_state.fig = fig
     st.session_state.info_text = (
-        f"取得日時: **{selected_date.strftime('%Y年%m月%d日')}"
-        f' {selected_hour:02d}:00 JST** （モデル:'
-        f' **{model_choice}**）'
+        f'取得日時: **{executed_at}** ／ 対象日時:'
+        f' **{selected_date.strftime("%Y年%m月%d日")}'
+        f' {selected_hour:02d}:00 JST** （モデル: **{model_choice}**）'
     )
 
     st.rerun()
