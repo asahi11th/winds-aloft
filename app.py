@@ -513,15 +513,16 @@ def generate_map_figure(
 
 
 def render_runway_html(progress_pct, is_takeoff=False):
-  """進捗％と連動した滑走路HTMLを出力（なめらかイージング適用版）"""
+  """進捗％と連動した滑走路HTMLを出力（幅短縮＆超滑らかなGPUアニメーション版）"""
   if is_takeoff:
-    plane_left = 92
-    plane_bottom = 30
+    # テイクオフ時：右端まで進んで少し浮き上がる
+    plane_x = 265  # px単位で右端へ移動
+    plane_y = -18  # 上へ浮き上がる
     plane_rotate = -20
   else:
-    # 0〜80%の進捗を、滑走路幅の0%〜75%位置へマッピング
-    plane_left = min(75, int(progress_pct * 0.9))
-    plane_bottom = 2
+    # 0〜80%の進捗を、滑走路幅内の移動量（0〜220px）にマッピング
+    plane_x = int((progress_pct / 100) * 220)
+    plane_y = 0
     plane_rotate = 0
 
   html_code = f"""
@@ -529,8 +530,8 @@ def render_runway_html(progress_pct, is_takeoff=False):
     .runway-container {{
         position: relative;
         width: 100%;
-        max-width: 500px;
-        height: 52px;
+        max-width: 320px; /* 滑走路の横幅を短縮 */
+        height: 48px;
         background-color: #f0f4f8;
         border-radius: 8px;
         overflow: hidden;
@@ -547,16 +548,14 @@ def render_runway_html(progress_pct, is_takeoff=False):
     }}
     .plane-icon {{
         position: absolute;
-        font-size: 22px;
+        font-size: 20px;
         line-height: 1;
-        left: {plane_left}%;
-        bottom: {plane_bottom}px;
-        transform: rotate({plane_rotate}deg);
-        /* ヌルヌル動く滑らかなイージングを設定 */
-        transition: left 0.6s cubic-bezier(0.25, 1, 0.5, 1), 
-                    bottom 0.6s cubic-bezier(0.25, 1, 0.5, 1), 
-                    transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-        will-change: left, bottom, transform;
+        left: 12px;
+        bottom: 10px;
+        /* GPU描画(translate3d)を使用してヌルヌル動く滑らかなイージングを設定 */
+        transform: translate3d({plane_x}px, {plane_y}px, 0) rotate({plane_rotate}deg);
+        transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        will-change: transform;
         z-index: 10;
     }}
     </style>
