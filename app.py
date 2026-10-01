@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 import glob
 import io
 import math
+import time
 
 import matplotlib
 import matplotlib.font_manager as fm
@@ -20,8 +21,14 @@ for font_path in glob.glob('/usr/share/fonts/**/*.[o|t]tf', recursive=True):
   except Exception:
     pass
 
-# 日本語フォントを優先設定
-plt.rcParams['font.family'] = ['IPAGothic', 'IPAexGothic', 'sans-serif']
+# 日本語フォントを優先設定（斜線なしの標準プロポーショナル）
+plt.rcParams['font.family'] = [
+    'Arial',
+    'Helvetica',
+    'IPAGothic',
+    'IPAexGothic',
+    'sans-serif',
+]
 plt.rcParams['axes.unicode_minus'] = False
 
 # 8地点の定義（名称・緯度・経度・表の配置位置・引出線接続位置）
@@ -298,7 +305,7 @@ def generate_map_figure(
   """カラー着色された地図・表・引出線を描画したMatplotlib Figureを生成"""
   fig = plt.figure(figsize=(16, 11), dpi=200, facecolor='white')
 
-  # データタイトル用のモデル表記（純粋な英語表記）
+  # データタイトル用のモデル表記
   model_display_names = {
       'ECMWF': 'ECMWF (IFS)',
       'JMA': 'JMA (GSM)',
@@ -307,7 +314,7 @@ def generate_map_figure(
   }
   model_name = model_display_names.get(model_code, model_code)
 
-  # 最上部タイトル（対象の予想日時）
+  # メインタイトル（斜線の入らない綺麗な数字フォント）
   dt_str = target_datetime.strftime('%Y年%m月%d日 %H:00 JST')
   fig.suptitle(
       f'出発時刻の予想風 （ {dt_str} / モデル: {model_name}）',
@@ -315,6 +322,13 @@ def generate_map_figure(
       fontweight='bold',
       color='#1A365D',
       y=0.97,
+      fontfamily=[
+          'Arial',
+          'Helvetica',
+          'IPAGothic',
+          'IPAexGothic',
+          'sans-serif',
+      ],
   )
 
   # 中央の地図用Axes
@@ -373,7 +387,6 @@ def generate_map_figure(
     is_airport = 'RJ' in name or '空港' in name
 
     if is_airport:
-      # 視認性の高い赤色飛行機マーク
       ax_map.scatter(
           lon,
           lat,
@@ -383,7 +396,6 @@ def generate_map_figure(
           zorder=5,
       )
     else:
-      # 非空港地点は落ち着いたグレーピン
       ax_map.scatter(
           lon,
           lat,
@@ -409,6 +421,13 @@ def generate_map_figure(
         color='#1A365D',
         transform=ax_table.transAxes,
         va='bottom',
+        fontfamily=[
+            'Arial',
+            'Helvetica',
+            'IPAGothic',
+            'IPAexGothic',
+            'sans-serif',
+        ],
     )
 
     # 表の作成
@@ -430,10 +449,8 @@ def generate_map_figure(
 
       txt = cell.get_text()
       txt.set_clip_on(False)
-
-      # 数字・英字の見やすさを最優先したフォント設定（等幅＋自動フォールバック）
       txt.set_fontfamily(
-          ['Consolas', 'DejaVu Sans', 'IPAGothic', 'sans-serif']
+          ['Arial', 'Helvetica', 'IPAGothic', 'IPAexGothic', 'sans-serif']
       )
 
       if r == 0:
@@ -449,7 +466,7 @@ def generate_map_figure(
 
         txt.set_color('#000000')
         txt.set_fontsize(12.0)
-        txt.set_weight('bold')  # 数値の視認性を高めるため太字化
+        txt.set_weight('bold')
 
     # 引出線
     conn_x, conn_y = loc['conn']
@@ -465,7 +482,7 @@ def generate_map_figure(
     )
     fig.add_artist(con)
 
-  # 右下のデータ参照元注記表記（英語表記）
+  # 右下のデータ参照元注記表記
   source_dict = {
       'ECMWF': 'ECMWF (IFS Model)',
       'JMA': 'JMA (GSM Model)',
@@ -483,9 +500,77 @@ def generate_map_figure(
       ha='right',
       va='bottom',
       style='italic',
+      fontfamily=[
+          'Arial',
+          'Helvetica',
+          'IPAGothic',
+          'IPAexGothic',
+          'sans-serif',
+      ],
   )
 
   return fig
+
+
+def render_takeoff_loading_css():
+  """離陸アニメーション用のカスタムCSSを出力"""
+  st.markdown(
+      """
+    <style>
+    @keyframes runwayTakeoff {
+        0% {
+            left: 0%;
+            bottom: 0px;
+            transform: rotate(0deg);
+        }
+        65% {
+            left: 65%;
+            bottom: 0px;
+            transform: rotate(0deg);
+        }
+        85% {
+            left: 85%;
+            bottom: 25px;
+            transform: rotate(-15deg);
+        }
+        100% {
+            left: 100%;
+            bottom: 55px;
+            transform: rotate(-25deg);
+        }
+    }
+
+    .runway-container {
+        position: relative;
+        width: 100%;
+        height: 90px;
+        background-color: #f0f4f8;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 15px 0 5px 0;
+        border: 1px solid #cbd5e1;
+    }
+
+    .runway-line {
+        position: absolute;
+        bottom: 18px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        border-top: 2px dashed #94a3b8;
+    }
+
+    .plane-icon {
+        position: absolute;
+        font-size: 32px;
+        line-height: 1;
+        animation: runwayTakeoff 2.5s ease-in-out infinite;
+        z-index: 10;
+    }
+    </style>
+    """,
+      unsafe_allow_html=True,
+  )
 
 
 # --- Streamlit 画面構成 ---
@@ -542,7 +627,7 @@ components.html(
 
 st.title('🛫Winds Aloft 予想風 出力🛫')
 
-# 幅をテキスト長に合わせて自動調整（inline-block / fit-content）したコンパクトなHTML表示
+# 幅をテキスト長に合わせて自動調整した説明枠
 st.markdown(
     """
     <div style="
@@ -573,14 +658,13 @@ st.markdown(
 jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
 
-# セッション状態の初期化（PDFデータの保持用）
+# セッション状態の初期化
 if 'pdf_data' not in st.session_state:
   st.session_state.pdf_data = None
   st.session_state.pdf_filename = ''
   st.session_state.fig = None
   st.session_state.info_text = ''
 
-# プルダウンの表示名と内部処理用コードのマップ
 MODEL_OPTIONS = {
     'ECMWF (欧州中期予報センター)': 'ECMWF',
     '気象庁 JMA (日本)': 'JMA',
@@ -599,18 +683,11 @@ with col2:
   selected_date = st.date_input('日付', now_jst.date())
 
 with col3:
-  # 現在時刻の時間（13:13 なら 13）を基準にリストを作成
   current_hour = now_jst.hour
-
-  # 現在の時間を先頭にして24時間分を順番に並べる
   all_hours = [(current_hour + i) % 24 for i in range(24)]
   hours_list = [f'{h:02d}:00' for h in all_hours]
 
-  selected_hour_str = st.selectbox(
-      '時刻 (JST)',
-      hours_list,
-      index=0,  # 先頭（＝現在の時間）を初期選択
-  )
+  selected_hour_str = st.selectbox('時刻 (JST)', hours_list, index=0)
   selected_hour = int(selected_hour_str.split(':')[0])
 
 with col4:
@@ -635,11 +712,45 @@ target_datetime = datetime.combine(
 # --- 2行目：データ取得＆予想風を作成 ボタン ---
 st.write('')
 if st.button('データ取得＆予想風を作成', type='primary'):
-  with st.spinner(f'{model_code} からデータを取得&表を作成中...'):
-    geojson_data = get_japan_geojson()
-    all_location_data = {}
+  # 離陸アニメーション用CSSの読み込み
+  render_takeoff_loading_css()
 
-    for loc in LOCATIONS_CONFIG:
+  # ロード中用コンテナの作成
+  loading_container = st.container()
+
+  with loading_container:
+    st.markdown(
+        """
+        <div class="runway-container">
+            <div class="runway-line"></div>
+            <div class="plane-icon">🛫</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    status_text = st.empty()
+    progress_bar = st.progress(0)
+
+    # 1. GeoJSON（日本地図データ）取得
+    status_text.markdown(
+        '**[1/3]** 日本地図データを準備中... ( **0%** )'
+    )
+    progress_bar.progress(5)
+    geojson_data = get_japan_geojson()
+    progress_bar.progress(10)
+
+    # 2. 各地点の気象データ取得 (8地点)
+    all_location_data = {}
+    total_locs = len(LOCATIONS_CONFIG)
+
+    for i, loc in enumerate(LOCATIONS_CONFIG, 1):
+      pct = 10 + int((i / total_locs) * 70)  # 10% ～ 80%
+      status_text.markdown(
+          f'**[2/3]** 気象データ（{model_code}）を取得中: **{loc["name"]}**'
+          f' ( **{pct}%** )'
+      )
+      progress_bar.progress(pct)
+
       try:
         data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
         rows = process_location_data(data_json, target_datetime)
@@ -647,12 +758,19 @@ if st.button('データ取得＆予想風を作成', type='primary'):
       except Exception as e:
         st.error(f"{loc['name']} の取得失敗: {e}")
 
-    # カラー図の描画
+    # 3. 図・地図表・PDFの作成
+    status_text.markdown(
+        '**[3/3]** 高度別予想風のレイアウトと表を描画中... ( **85%** )'
+    )
+    progress_bar.progress(85)
+
     fig = generate_map_figure(
         all_location_data, geojson_data, target_datetime, model_code
     )
 
-    # PDF用バッファ生成
+    status_text.markdown('**[3/3]** PDF形式のファイルを出力中... ( **95%** )')
+    progress_bar.progress(95)
+
     pdf_buffer = io.BytesIO()
     fig.savefig(
         pdf_buffer,
@@ -662,22 +780,27 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     )
     pdf_buffer.seek(0)
 
-    filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
+    progress_bar.progress(100)
+    status_text.markdown('✨ **テイクオフ！完成しました。** ( **100%** )')
+    time.sleep(0.4)
 
-    # ボタンを押した現在日時（JST）を取得
-    executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
+  # ロード中コンテナを消去して画面を切り替え
+  loading_container.empty()
 
-    # セッションに保存してボタンをアクティブ化
-    st.session_state.pdf_data = pdf_buffer.getvalue()
-    st.session_state.pdf_filename = filename
-    st.session_state.fig = fig
-    st.session_state.info_text = (
-        f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
-        f' <b>{selected_date.strftime("%Y年%m月%d日")}'
-        f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_code}</b>）'
-    )
+  filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
+  executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
 
-    st.rerun()
+  # セッション情報の更新
+  st.session_state.pdf_data = pdf_buffer.getvalue()
+  st.session_state.pdf_filename = filename
+  st.session_state.fig = fig
+  st.session_state.info_text = (
+      f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
+      f' <b>{selected_date.strftime("%Y年%m月%d日")}'
+      f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_code}</b>）'
+  )
+
+  st.rerun()
 
 # --- 3行目：生成結果の表示 ---
 if st.session_state.fig is not None:
