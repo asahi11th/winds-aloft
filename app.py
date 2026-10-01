@@ -490,18 +490,28 @@ def generate_map_figure(
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# 全体フォント設定およびプルダウンタップ判定拡張CSS
+# 全体フォント設定およびモバイルでのキーボード自動起動防止CSS
 st.markdown(
     """
     <style>
     html, body, [class*="css"] {
         font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important;
     }
-    /* プルダウンの枠内どこをタップしても反応するように設定 */
-    div[data-baseweb="select"] {
+    
+    /* プルダウンや日付選択タップ時にキーボードが起動するのを防ぐ設定 */
+    div[data-baseweb="select"] input,
+    div[data-baseweb="input"] input {
+        inputmode: none !important;      /* モバイルキーボードの表示を無効化 */
+        pointer-events: none !important;  /* input要素への直接フォーカスを防ぐ */
+    }
+    
+    /* 枠内のどこをタップしても選択メニューが開くように調整 */
+    div[data-baseweb="select"],
+    div[data-baseweb="input"] {
         cursor: pointer !important;
     }
-    div[data-baseweb="select"] * {
+    div[data-baseweb="select"] *,
+    div[data-baseweb="input"] * {
         cursor: pointer !important;
     }
     </style>
