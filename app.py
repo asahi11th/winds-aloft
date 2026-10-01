@@ -21,11 +21,10 @@ for font_path in glob.glob('/usr/share/fonts/**/*.[o|t]tf', recursive=True):
   except Exception:
     pass
 
-# 日本語フォントを優先設定（太字数字がくっきり映えるサンセリフ系）
+# 全体の基本フォントは日本語対応（Meiryo / IPAGothic 等）に設定
 plt.rcParams['font.family'] = [
-    'DejaVu Sans',
-    'Arial',
-    'Helvetica',
+    'Meiryo',
+    'Yu Gothic',
     'IPAGothic',
     'IPAexGothic',
     'sans-serif',
@@ -240,11 +239,8 @@ def process_location_data(data_json, target_datetime):
     ws_val = get_raw_var_value(hourly, 'wind_speed', h, idx)
     wd_val = get_raw_var_value(hourly, 'wind_direction', h, idx)
 
-    # 気温欠損時の補正：地上気温から標準減率（-1.98℃/1,000ft）で自動算出
     if t_val is None:
       t_val = sfc_temp - (alt_ft / 1000.0) * 1.98
-
-    # 風速・風向欠損時の補正：直近（地上）の値をフォールバック
     if ws_val is None:
       ws_val = sfc_ws
     if wd_val is None:
@@ -264,19 +260,16 @@ def process_location_data(data_json, target_datetime):
       u_interp = u_comp[0]
       v_interp = v_comp[0]
     else:
-      # 各高度へ補間
       t_interp = float(np.interp(target_alt, press_alts, temps))
       u_interp = float(np.interp(target_alt, press_alts, u_comp))
       v_interp = float(np.interp(target_alt, press_alts, v_comp))
 
-      # 【標準減率・整合性チェックガード】
       expected_isa_temp = sfc_temp - (target_alt / 1000.0) * 1.98
       t_interp = np.clip(t_interp, expected_isa_temp - 8.0, sfc_temp + 5.0)
 
     ws_interp = math.hypot(u_interp, v_interp)
     wd_true = (math.degrees(math.atan2(-u_interp, -v_interp)) + 360) % 360
 
-    # 磁方位計算（North 360°表記対応：000Mは存在せず360Mとする）
     wd_mag = (wd_true + MAG_VARIATION) % 360
     wd_mag_rounded = int(round(wd_mag))
 
@@ -286,8 +279,6 @@ def process_location_data(data_json, target_datetime):
       wd_mag_str = f'{wd_mag_rounded:03d}'
 
     isa_diff = calculate_isa_diff(target_alt, t_interp)
-
-    # 気温の表記：0℃以上はプラス記号なし、マイナス時のみ '-' を付与
     temp_rounded = int(round(t_interp))
 
     rows.append([
@@ -306,7 +297,6 @@ def generate_map_figure(
   """カラー着色された地図・表・引出線を描画したMatplotlib Figureを生成"""
   fig = plt.figure(figsize=(16, 11), dpi=200, facecolor='white')
 
-  # データタイトル用のモデル表記
   model_display_names = {
       'ECMWF': 'ECMWF (IFS)',
       'JMA': 'JMA (GSM)',
@@ -405,7 +395,7 @@ def generate_map_figure(
     ax_table = fig.add_axes(rect, facecolor='white')
     ax_table.axis('off')
 
-    # 地点タイトル
+    # 地点タイトル（日本語標準フォントに戻して元の表示スタイルを維持）
     ax_table.text(
         0.0,
         0.91,
@@ -415,6 +405,7 @@ def generate_map_figure(
         color='#1A365D',
         transform=ax_table.transAxes,
         va='bottom',
+        fontfamily=['Meiryo', 'Yu Gothic', 'IPAGothic', 'sans-serif'],
     )
 
     # 表の作成
@@ -430,7 +421,7 @@ def generate_map_figure(
         bbox=[0.0, 0.0, 1.0, 0.88],
     )
 
-    # 表セル内のフォントとデザインの調整（ご提示画像に合わせた太字・スタイル）
+    # 表セル内のフォントとデザインの調整（表内の数字・文字はご提示画像の太字スタイル）
     for (r, c), cell in table.get_celld().items():
       cell.set_linewidth(0.8)
       cell.set_edgecolor('#1A5276')
@@ -443,6 +434,7 @@ def generate_map_figure(
         txt.set_color('white')
         txt.set_fontsize(12.5)
         txt.set_weight('bold')
+        txt.set_fontfamily(['Meiryo', 'Yu Gothic', 'IPAGothic', 'sans-serif'])
       else:
         if r % 2 == 1:
           cell.set_facecolor('#FFFFFF')
@@ -450,8 +442,9 @@ def generate_map_figure(
           cell.set_facecolor('#EDF2F7')
 
         txt.set_color('#000000')
-        txt.set_fontsize(13.0)  # フォントサイズを拡大
-        txt.set_weight('bold')  # 強調太字（画像スタイルの再現）
+        txt.set_fontsize(13.0)
+        txt.set_weight('bold')
+        # 表の中の文字・数字専用の太字サンセリフフォント
         txt.set_fontfamily(['DejaVu Sans', 'Arial', 'sans-serif'])
 
     # 引出線
@@ -492,7 +485,7 @@ def generate_map_figure(
 
 
 def render_runway_html(progress_pct, is_takeoff=False):
-  """進捗％と連動した滑走路HTMLを出力（幅短縮＆超滑らかなGPUアニメーション版）"""
+  """進捗％と連動した滑走路HTMLを出力"""
   if is_takeoff:
     plane_x = 265
     plane_y = -18
@@ -546,7 +539,6 @@ def render_runway_html(progress_pct, is_takeoff=False):
 # --- Streamlit 画面構成 ---
 st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wide')
 
-# 全体フォント設定およびプルダウンカーソル設定CSS
 st.markdown(
     """
     <style>
@@ -567,7 +559,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# プルダウン選択時の自動クローズ制御JavaScript
 components.html(
     """
     <script>
@@ -597,7 +588,6 @@ components.html(
 
 st.title('🛫Winds Aloft 予想風 出力🛫')
 
-# 幅をテキスト長に合わせて自動調整した説明枠
 st.markdown(
     """
     <div style="
@@ -628,7 +618,6 @@ st.markdown(
 jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
 
-# セッション状態の初期化
 if 'pdf_data' not in st.session_state:
   st.session_state.pdf_data = None
   st.session_state.pdf_filename = ''
@@ -642,7 +631,6 @@ MODEL_OPTIONS = {
     'ICON (ドイツ気象庁)': 'ICON',
 }
 
-# --- 1行目：操作パネル ---
 col1, col2, col3, col4, _ = st.columns([1.6, 1.0, 0.9, 1.2, 1.3])
 
 with col1:
@@ -679,7 +667,6 @@ target_datetime = datetime.combine(
     selected_date, datetime.min.time()
 ) + timedelta(hours=selected_hour)
 
-# --- 2行目：データ取得＆予想風を作成 ボタン ---
 st.write('')
 if st.button('データ取得＆予想風を作成', type='primary'):
   loading_container = st.container()
@@ -688,14 +675,11 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     plane_box = st.empty()
     status_text = st.empty()
 
-    # 初期位置（0%）
     plane_box.markdown(render_runway_html(0), unsafe_allow_html=True)
 
-    # 1. 地図データ取得
     status_text.markdown('**[1/3]** 日本地図データを準備中...')
     geojson_data = get_japan_geojson()
 
-    # 2. 気象データ取得（8地点）
     all_location_data = {}
     total_locs = len(LOCATIONS_CONFIG)
 
@@ -713,7 +697,6 @@ if st.button('データ取得＆予想風を作成', type='primary'):
       except Exception as e:
         st.error(f"{loc['name']} の取得失敗: {e}")
 
-    # 3. レイアウトとPDF生成
     status_text.markdown(
         '**[3/3]** 高度別予想風の表とPDFを出力中...'
     )
@@ -730,20 +713,17 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     )
     pdf_buffer.seek(0)
 
-    # 🎉 完了時（100%）にテイクオフ
     plane_box.markdown(
         render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
     )
     status_text.markdown('✨ **テイクオフ！完成しました。**')
     time.sleep(0.6)
 
-  # ロード中コンテナを消去して画面切り替え
   loading_container.empty()
 
   filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
   executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
 
-  # セッション情報の更新
   st.session_state.pdf_data = pdf_buffer.getvalue()
   st.session_state.pdf_filename = filename
   st.session_state.fig = fig
@@ -755,7 +735,6 @@ if st.button('データ取得＆予想風を作成', type='primary'):
 
   st.rerun()
 
-# --- 3行目：生成結果の表示 ---
 if st.session_state.fig is not None:
   st.markdown(
       f"""
