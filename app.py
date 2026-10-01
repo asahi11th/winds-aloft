@@ -511,27 +511,26 @@ st.markdown(
 
 st.title('🛫Winds Aloft 予想風 出力🛫')
 
-# 補足メモを小さく（11px）控えめに表示するカスタムHTML/CSS
+# 箇条書きの内容をすべて保持しつつ、文字サイズ（10px）と上下余白をコンパクトに抑えたHTML表示
 st.markdown(
     """
-    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
-        Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C
-    </div>
     <div style="
-        font-size: 11px;
-        color: #718096;
+        font-size: 10px;
+        color: #4a5568;
         background-color: #f8fafc;
-        padding: 6px 12px;
+        padding: 8px 12px;
         border-radius: 6px;
-        border: 1px solid #edf2f7;
-        margin-bottom: 16px;
-        line-height: 1.5;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 12px;
+        line-height: 1.4;
     ">
-        <span style="font-weight: bold; color: #4a5568;">💡 気象モデルメモ：</span>
-        <span style="margin-left: 6px;"><b>ECMWF</b> (最高精度/推奨)</span> | 
-        <span><b>JMA</b> (日本/国内強み)</span> | 
-        <span><b>GFS</b> (米国NOAA)</span> | 
-        <span><b>ICON</b> (ドイツ)</span>
+        <div style="font-weight: bold; color: #2d3748; margin-bottom: 4px;">💡 気象モデルの概要メモ</div>
+        <ul style="margin: 0; padding-left: 18px; list-style-type: disc;">
+            <li><b>ECMWF（欧州中期予報センター）</b>: 世界最高水準の予測精度（標準・おすすめ）</li>
+            <li><b>気象庁 JMA（GSM）</b>: 日本の気象庁による全体数値予報モデル（国内・近海に強み）</li>
+            <li><b>GFS（アメリカ海洋大気庁）</b>: 米国NOAAによる世界モデル</li>
+            <li><b>ICON（ドイツ気象庁）</b>: ドイツ気象庁による高精度グローバルモデル</li>
+        </ul>
     </div>
     """,
     unsafe_allow_html=True,
