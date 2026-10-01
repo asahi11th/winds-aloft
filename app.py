@@ -73,7 +73,7 @@ LOCATIONS_CONFIG = [
         'rect': [0.015, 0.025, 0.285, 0.28],
         'conn': (1.0, 0.8),
     },
-    # 淡路 (中央下) -> 表の天端(y=0.88)にぴったり接続するよう修正
+    # 淡路 (中央下)
     {
         'name': '淡路',
         'lat': 34.341,
@@ -482,11 +482,15 @@ with col2:
   selected_date = st.date_input('日付', now_jst.date())
 
 with col3:
-  hours_list = [f'{h:02d}:00' for h in range(24)]
+  # 現在時刻（時間）から24時間を並べる（現在時刻をリストの先頭にする）
+  current_h = now_jst.hour
+  hours_list = [f'{(current_h + i) % 24:02d}:00' for i in range(24)]
+
+  # 先頭（現在時刻）を初期選択
   selected_hour_str = st.selectbox(
       '時刻 (JST)',
       hours_list,
-      index=now_jst.hour,
+      index=0,
   )
   selected_hour = int(selected_hour_str.split(':')[0])
 
