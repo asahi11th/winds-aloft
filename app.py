@@ -485,12 +485,12 @@ with col3:
   # 00:00 〜 23:00 の標準時系列順リスト
   hours_list = [f'{h:02d}:00' for h in range(24)]
 
-  # 現在の時間をデフォルト選択（画面を開いた時に現在時刻にフォーカス）
-  current_hour = now_jst.hour
+  # 「次の時間（現在時刻 + 1時間）」をデフォルト選択位置に指定
+  next_hour = min(now_jst.hour + 1, 23)
   selected_hour_str = st.selectbox(
       '時刻 (JST)',
       hours_list,
-      index=current_hour,
+      index=next_hour,
   )
   selected_hour = int(selected_hour_str.split(':')[0])
 
