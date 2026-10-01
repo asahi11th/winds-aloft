@@ -511,21 +511,23 @@ st.markdown(
 
 st.title('🛫Winds Aloft 予想風 出力🛫')
 
-# 箇条書きの内容をすべて保持しつつ、文字サイズ（10px）と上下余白をコンパクトに抑えたHTML表示
+# 幅をテキスト長に合わせて自動調整（inline-block / fit-content）したコンパクトなHTML表示
 st.markdown(
     """
     <div style="
+        display: inline-block;
+        max-width: 100%;
         font-size: 10px;
         color: #4a5568;
         background-color: #f8fafc;
-        padding: 8px 12px;
+        padding: 6px 12px;
         border-radius: 6px;
         border: 1px solid #e2e8f0;
         margin-bottom: 12px;
         line-height: 1.4;
     ">
-        <div style="font-weight: bold; color: #2d3748; margin-bottom: 4px;">💡 気象モデルの概要メモ</div>
-        <ul style="margin: 0; padding-left: 18px; list-style-type: disc;">
+        <div style="font-weight: bold; color: #2d3748; margin-bottom: 3px;">💡 気象モデルの概要メモ</div>
+        <ul style="margin: 0; padding-left: 16px; list-style-type: disc;">
             <li><b>ECMWF（欧州中期予報センター）</b>: 世界最高水準の予測精度（標準・おすすめ）</li>
             <li><b>気象庁 JMA（GSM）</b>: 日本の気象庁による全体数値予報モデル（国内・近海に強み）</li>
             <li><b>GFS（アメリカ海洋大気庁）</b>: 米国NOAAによる世界モデル</li>
