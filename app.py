@@ -251,20 +251,25 @@ def process_location_data(data_json, target_datetime):
       v_interp = float(np.interp(target_alt, press_alts, v_comp))
 
       # 【標準減率・整合性チェックガード】
-      # 地上からの理論気温（標準減率: -1.98℃ / 1000ft）
       expected_isa_temp = sfc_temp - (target_alt / 1000.0) * 1.98
-      # 気象モデル特有の極端な逆転層やデータ歪みを考慮し、理論値から±8℃以内に収まるようガード
       t_interp = np.clip(t_interp, expected_isa_temp - 8.0, sfc_temp + 5.0)
 
     ws_interp = math.hypot(u_interp, v_interp)
     wd_true = (math.degrees(math.atan2(-u_interp, -v_interp)) + 360) % 360
+
+    # 磁方位計算（North 360°表記対応）
     wd_mag = (wd_true + MAG_VARIATION) % 360
+    if round(wd_mag) == 0 or round(wd_mag) == 360:
+      wd_mag_str = '360'
+    else:
+      wd_mag_str = f'{int(round(wd_mag)):03d}'
+
     isa_diff = calculate_isa_diff(target_alt, t_interp)
 
     rows.append([
         f'{target_alt}',
         f'{int(round(t_interp)):+d}',
-        f'{int(round(wd_mag)):03d}M / {int(round(ws_interp)):02d}',
+        f'{wd_mag_str}M / {int(round(ws_interp)):02d}',
         f'{isa_diff:+d}',
     ])
 
