@@ -513,12 +513,11 @@ def generate_map_figure(
 
 
 def render_runway_html(progress_pct, is_takeoff=False):
-  """進捗％と連動した滑走路HTMLを出力"""
-  # 地上滑走（0%〜80%）と離陸（100%）の位置・角度の計算
+  """進捗％と連動した滑走路HTMLを出力（なめらかイージング適用版）"""
   if is_takeoff:
     plane_left = 92
-    plane_bottom = 28
-    plane_rotate = -22
+    plane_bottom = 30
+    plane_rotate = -20
   else:
     # 0〜80%の進捗を、滑走路幅の0%〜75%位置へマッピング
     plane_left = min(75, int(progress_pct * 0.9))
@@ -531,16 +530,16 @@ def render_runway_html(progress_pct, is_takeoff=False):
         position: relative;
         width: 100%;
         max-width: 500px;
-        height: 48px;
+        height: 52px;
         background-color: #f0f4f8;
-        border-radius: 6px;
+        border-radius: 8px;
         overflow: hidden;
         margin: 8px 0;
         border: 1px solid #cbd5e1;
     }}
     .runway-line {{
         position: absolute;
-        bottom: 10px;
+        bottom: 12px;
         left: 0;
         width: 100%;
         height: 2px;
@@ -548,12 +547,16 @@ def render_runway_html(progress_pct, is_takeoff=False):
     }}
     .plane-icon {{
         position: absolute;
-        font-size: 20px;
+        font-size: 22px;
         line-height: 1;
         left: {plane_left}%;
         bottom: {plane_bottom}px;
         transform: rotate({plane_rotate}deg);
-        transition: all 0.4s ease-out;
+        /* ヌルヌル動く滑らかなイージングを設定 */
+        transition: left 0.6s cubic-bezier(0.25, 1, 0.5, 1), 
+                    bottom 0.6s cubic-bezier(0.25, 1, 0.5, 1), 
+                    transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        will-change: left, bottom, transform;
         z-index: 10;
     }}
     </style>
