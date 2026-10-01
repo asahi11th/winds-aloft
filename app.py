@@ -335,8 +335,6 @@ def generate_map_figure(all_location_data, geojson_data, target_datetime, model_
         bbox=[0.0, 0.0, 1.0, 0.88],
     )
 
-        table.auto_set_font_size(False)
-
         for (r, c), cell in table.get_celld().items():
             cell.set_linewidth(0.8)
             cell.set_edgecolor("#2B6CB0")
