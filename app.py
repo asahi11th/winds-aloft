@@ -453,7 +453,7 @@ with col4:
             key="download_top",
         )
     else:
-        st.button("📄 PDFにする", disabled=True)
+        st.button("📄 PDFをダウンロード", disabled=True)
 
 target_datetime = datetime.combine(
     selected_date, datetime.min.time()
