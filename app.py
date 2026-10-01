@@ -73,13 +73,13 @@ LOCATIONS_CONFIG = [
         'rect': [0.015, 0.025, 0.285, 0.28],
         'conn': (1.0, 0.8),
     },
-    # 淡路 (中央下)
+    # 淡路 (中央下) -> 表の天端(y=0.88)にぴったり接続するよう修正
     {
         'name': '淡路',
         'lat': 34.341,
         'lon': 134.856,
         'rect': [0.357, 0.025, 0.285, 0.28],
-        'conn': (0.5, 1.0),
+        'conn': (0.5, 0.88),
     },
     # 南紀白浜 (右下)
     {
@@ -360,7 +360,7 @@ def generate_map_figure(
     ax_table = fig.add_axes(rect, facecolor='white')
     ax_table.axis('off')
 
-    # 地点タイトル（文字サイズ拡大: 13 -> 15）
+    # 地点タイトル
     ax_table.text(
         0.0,
         0.91,
@@ -395,7 +395,7 @@ def generate_map_figure(
       if r == 0:
         cell.set_facecolor('#2B6CB0')
         txt.set_color('white')
-        txt.set_fontsize(12.5)  # ヘッダー文字サイズ拡大: 11.0 -> 12.5
+        txt.set_fontsize(12.5)
         txt.set_weight('bold')
       else:
         if r % 2 == 1:
@@ -404,7 +404,7 @@ def generate_map_figure(
           cell.set_facecolor('#EDF2F7')
 
         txt.set_color('#000000')
-        txt.set_fontsize(12.0)  # 数値文字サイズ拡大: 10.0 -> 12.0
+        txt.set_fontsize(12.0)
         txt.set_weight('normal')
 
     # 引出線
