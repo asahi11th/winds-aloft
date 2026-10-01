@@ -127,17 +127,17 @@ def calculate_isa_diff(alt_ft, temp_c):
 
 def fetch_weather_data(lat, lon, model_choice):
   """選択されたモデルに応じた気象データを取得"""
-  if model_choice == '気象庁 (JMA)':
+  if '気象庁' in model_choice or 'JMA' in model_choice:
     urls = [
         'https://api.open-meteo.com/v1/jma',
         'https://api.open-meteo.com/v1/forecast',
     ]
-  elif model_choice == 'GFS (NOAA)':
+  elif 'GFS' in model_choice:
     urls = [
         'https://api.open-meteo.com/v1/gfs',
         'https://api.open-meteo.com/v1/forecast',
     ]
-  elif model_choice == 'ICON (DWD)':
+  elif 'ICON' in model_choice:
     urls = [
         'https://api.open-meteo.com/v1/dwd-icon',
         'https://api.open-meteo.com/v1/forecast',
@@ -456,13 +456,16 @@ def generate_map_figure(
     fig.add_artist(con)
 
   # 右下のデータ参照元注記表記の対応付け
-  source_dict = {
-      'ECMWF (IFS)': 'ECMWF (IFS Model)',
-      '気象庁 (JMA)': 'JMA (GSM Model)',
-      'GFS (NOAA)': 'NOAA (GFS Model)',
-      'ICON (DWD)': 'DWD (ICON Model)',
-  }
-  source_label = source_dict.get(model_choice, model_choice)
+  if 'ECMWF' in model_choice:
+    source_label = 'ECMWF (IFS Model)'
+  elif '気象庁' in model_choice or 'JMA' in model_choice:
+    source_label = 'JMA (GSM Model)'
+  elif 'GFS' in model_choice:
+    source_label = 'NOAA (GFS Model)'
+  elif 'ICON' in model_choice:
+    source_label = 'DWD (ICON Model)'
+  else:
+    source_label = model_choice
 
   fig.text(
       0.985,
@@ -501,7 +504,14 @@ st.markdown(
 )
 
 st.title('🛫Winds Aloft 予想風 出力🛫')
-st.caption('Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C')
+st.caption(
+    'Data Source: Open-Meteo API | Wind: °M / kt | Temp: °C\n\n'
+    '💡 **気象モデルの概要メモ**：\n'
+    '・**ECMWF (欧州中期予報センター)**：世界最高水準の予測精度（標準・おすすめ）\n'
+    '・**気象庁 JMA (GSM)**：日本の気象庁による全休数値予報モデル（国内・近海に強み）\n'
+    '・**GFS (アメリカ海洋大気庁)**：米国NOAAによる世界モデル\n'
+    '・**ICON (ドイツ気象庁)**：ドイツ気象庁による高精度グローバルモデル'
+)
 
 # 現在の日本時間（JST）を自動取得
 jst = timezone(timedelta(hours=9))
@@ -515,12 +525,17 @@ if 'pdf_data' not in st.session_state:
   st.session_state.info_text = ''
 
 # --- 1行目：操作パネル ---
-col1, col2, col3, col4, _ = st.columns([1.5, 1.1, 0.9, 1.2, 1.4])
+col1, col2, col3, col4, _ = st.columns([1.8, 1.1, 0.9, 1.2, 1.1])
 
 with col1:
   model_choice = st.selectbox(
       '気象モデル',
-      ['ECMWF (IFS)', '気象庁 (JMA)', 'GFS (NOAA)', 'ICON (DWD)'],
+      [
+          'ECMWF (IFS / 欧州中期予報センター)',
+          '気象庁 JMA (GSM / 日本)',
+          'GFS (NOAA / アメリカ海洋大気庁)',
+          'ICON (DWD / ドイツ気象庁)',
+      ],
       index=0,
   )
 
@@ -592,13 +607,17 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     pdf_buffer.seek(0)
 
     # ファイル名用モデルタグの対応付け
-    model_tag_dict = {
-        'ECMWF (IFS)': 'ECMWF',
-        '気象庁 (JMA)': 'JMA',
-        'GFS (NOAA)': 'GFS',
-        'ICON (DWD)': 'ICON',
-    }
-    model_tag = model_tag_dict.get(model_choice, 'MODEL')
+    if 'ECMWF' in model_choice:
+      model_tag = 'ECMWF'
+    elif '気象庁' in model_choice or 'JMA' in model_choice:
+      model_tag = 'JMA'
+    elif 'GFS' in model_choice:
+      model_tag = 'GFS'
+    elif 'ICON' in model_choice:
+      model_tag = 'ICON'
+    else:
+      model_tag = 'MODEL'
+
     filename = f"WindsAloft_{model_tag}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
 
     # ボタンを押した現在日時（JST）を取得
