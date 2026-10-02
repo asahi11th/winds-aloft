@@ -91,13 +91,13 @@ LOCATIONS_CONFIG = [
     },
 ]
 
-# 高層気象面の実効高度（ISA幾何高度換算）
+# APIで確実に取得可能な主要気圧面（700hPa=約9,880ftを追加して6400ftの固着を完全防止）
 PRESSURE_LEVELS = [
     {'hpa': '1000', 'ft': 360},
-    {'hpa': '950', 'ft': 1640},
-    {'hpa': '900', 'ft': 3210},
+    {'hpa': '950', 'ft': 1800},
+    {'hpa': '900', 'ft': 3100},
     {'hpa': '850', 'ft': 4780},
-    {'hpa': '800', 'ft': 6390},
+    {'hpa': '700', 'ft': 9880},  # ← 追加
 ]
 
 TARGET_ALTITUDES = [0, 2000, 3000, 5000, 6400]
@@ -119,6 +119,19 @@ def get_japan_geojson():
 def calculate_isa_diff(alt_ft, temp_c):
   isa_temp = 15.0 - (alt_ft / 1000.0) * 1.98
   return round(temp_c - isa_temp)
+
+
+def interpolate_angle(x_target, x_pts, deg_pts):
+  """角度（風向）を最短経路で滑らかに直線補間する関数"""
+  rad_pts = np.radians(deg_pts)
+  sin_pts = np.sin(rad_pts)
+  cos_pts = np.cos(rad_pts)
+
+  sin_interp = float(np.interp(x_target, x_pts, sin_pts))
+  cos_interp = float(np.interp(x_target, x_pts, cos_pts))
+
+  deg_interp = math.degrees(math.atan2(sin_interp, cos_interp)) % 360
+  return deg_interp
 
 
 def fetch_weather_data(lat, lon, model_code):
@@ -201,11 +214,7 @@ def process_location_data(data_json, target_datetime):
   if sfc_wd is None:
     sfc_wd = 0.0
 
-  rad_sfc = math.radians(sfc_wd)
-  u_sfc = -sfc_ws * math.sin(rad_sfc)
-  v_sfc = -sfc_ws * math.cos(rad_sfc)
-
-  # 上空（高層気象面）専用データポイント
+  # 上空気象面データ
   upper_data_points = []
   for p in PRESSURE_LEVELS:
     h = p['hpa']
@@ -216,32 +225,25 @@ def process_location_data(data_json, target_datetime):
     wd_val = get_raw_var_value(hourly, 'wind_direction', h, idx)
 
     if t_val is not None and ws_val is not None and wd_val is not None:
-      rad = math.radians(wd_val)
-      u_val = -ws_val * math.sin(rad)
-      v_val = -ws_val * math.cos(rad)
-      upper_data_points.append((alt_ft, t_val, u_val, v_val))
+      upper_data_points.append((alt_ft, t_val, ws_val, wd_val))
 
   upper_data_points.sort(key=lambda x: x[0])
 
   upper_alts = [p[0] for p in upper_data_points]
   upper_temps = [p[1] for p in upper_data_points]
-  upper_u = [p[2] for p in upper_data_points]
-  upper_v = [p[3] for p in upper_data_points]
+  upper_ws = [p[2] for p in upper_data_points]
+  upper_wd = [p[3] for p in upper_data_points]
 
   rows = []
   for target_alt in TARGET_ALTITUDES:
     if target_alt == 0:
       t_interp = sfc_temp
-      u_interp = u_sfc
-      v_interp = v_sfc
+      ws_interp = sfc_ws
+      wd_true = sfc_wd
     else:
-      # 高精度補間
       t_interp = float(np.interp(target_alt, upper_alts, upper_temps))
-      u_interp = float(np.interp(target_alt, upper_alts, upper_u))
-      v_interp = float(np.interp(target_alt, upper_alts, upper_v))
-
-    ws_interp = math.hypot(u_interp, v_interp)
-    wd_true = (math.degrees(math.atan2(-u_interp, -v_interp)) + 360) % 360
+      ws_interp = float(np.interp(target_alt, upper_alts, upper_ws))
+      wd_true = interpolate_angle(target_alt, upper_alts, upper_wd)
 
     wd_mag = (wd_true + MAG_VARIATION) % 360
     wd_mag_rounded = int(round(wd_mag))
@@ -586,7 +588,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
       plane_box.markdown(
           render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
       )
-      status_text.markdown('✨ **テイクオフ！完成しました！**')
+      status_text.markdown('✨ **テイクオフ！完成しました。**')
       time.sleep(0.5)
 
   loading_container.empty()
