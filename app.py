@@ -5,6 +5,8 @@ import math
 import time
 
 import matplotlib
+
+matplotlib.use('Agg')  # マルチスレッド/複数アクセス時の描画スレッド安全化
 import matplotlib.font_manager as fm
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -21,7 +23,6 @@ for font_path in glob.glob('/usr/share/fonts/**/*.[o|t]tf', recursive=True):
   except Exception:
     pass
 
-# 全体の基本フォントは日本語対応（Meiryo / IPAGothic 等）に設定
 plt.rcParams['font.family'] = [
     'Meiryo',
     'Yu Gothic',
@@ -31,9 +32,8 @@ plt.rcParams['font.family'] = [
 ]
 plt.rcParams['axes.unicode_minus'] = False
 
-# 8地点の定義（名称・緯度・経度・表の配置位置・引出線接続位置）
+# 8地点の定義
 LOCATIONS_CONFIG = [
-    # 姫路 (左上)
     {
         'name': '姫路',
         'lat': 34.815,
@@ -41,7 +41,6 @@ LOCATIONS_CONFIG = [
         'rect': [0.015, 0.66, 0.285, 0.28],
         'conn': (1.0, 0.2),
     },
-    # 八尾 (中央上)
     {
         'name': '八尾 (RJOY)',
         'lat': 34.596,
@@ -49,7 +48,6 @@ LOCATIONS_CONFIG = [
         'rect': [0.357, 0.66, 0.285, 0.28],
         'conn': (0.5, 0.0),
     },
-    # 名古屋 (右上)
     {
         'name': '名古屋 (RJNA)',
         'lat': 35.255,
@@ -57,7 +55,6 @@ LOCATIONS_CONFIG = [
         'rect': [0.700, 0.66, 0.285, 0.28],
         'conn': (0.0, 0.2),
     },
-    # 岡山 (左中)
     {
         'name': '岡山 (RJOB)',
         'lat': 34.757,
@@ -65,7 +62,6 @@ LOCATIONS_CONFIG = [
         'rect': [0.015, 0.33, 0.285, 0.28],
         'conn': (1.0, 0.5),
     },
-    # 和歌山 (右中)
     {
         'name': '和歌山',
         'lat': 34.226,
@@ -73,7 +69,6 @@ LOCATIONS_CONFIG = [
         'rect': [0.700, 0.33, 0.285, 0.28],
         'conn': (0.0, 0.5),
     },
-    # 高松 (左下)
     {
         'name': '高松 (RJOT)',
         'lat': 34.214,
@@ -81,7 +76,6 @@ LOCATIONS_CONFIG = [
         'rect': [0.015, 0.025, 0.285, 0.28],
         'conn': (1.0, 0.8),
     },
-    # 淡路 (中央下)
     {
         'name': '淡路',
         'lat': 34.341,
@@ -89,7 +83,6 @@ LOCATIONS_CONFIG = [
         'rect': [0.357, 0.025, 0.285, 0.28],
         'conn': (0.5, 0.88),
     },
-    # 南紀白浜 (右下)
     {
         'name': '南紀白浜 (RJBD)',
         'lat': 33.662,
@@ -99,7 +92,6 @@ LOCATIONS_CONFIG = [
     },
 ]
 
-# 気圧面 (hPa) と標準高度 (ft)
 PRESSURE_LEVELS = [
     {'hpa': '1000', 'ft': 364},
     {'hpa': '950', 'ft': 1940},
@@ -109,14 +101,12 @@ PRESSURE_LEVELS = [
     {'hpa': '800', 'ft': 6390},
 ]
 
-# 出力対象高度
 TARGET_ALTITUDES = [0, 2000, 2500, 3000, 5000, 6400]
-MAG_VARIATION = 8.0  # 磁気偏角補正(+8度)
+MAG_VARIATION = 8.0
 
 
 @st.cache_data(ttl=86400)
 def get_japan_geojson():
-  """日本地図のGeoJSONを取得"""
   url = 'https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson'
   try:
     resp = requests.get(url, timeout=5)
@@ -128,13 +118,11 @@ def get_japan_geojson():
 
 
 def calculate_isa_diff(alt_ft, temp_c):
-  """標準大気(ISA)との差分計算"""
   isa_temp = 15.0 - (alt_ft / 1000.0) * 1.98
   return round(temp_c - isa_temp)
 
 
 def fetch_weather_data(lat, lon, model_code):
-  """選択されたモデルコードに応じた気象データを取得"""
   if model_code == 'JMA':
     urls = [
         'https://api.open-meteo.com/v1/jma',
@@ -150,17 +138,13 @@ def fetch_weather_data(lat, lon, model_code):
         'https://api.open-meteo.com/v1/dwd-icon',
         'https://api.open-meteo.com/v1/forecast',
     ]
-  else:  # ECMWF (デフォルト)
+  else:
     urls = [
         'https://api.open-meteo.com/v1/ecmwf',
         'https://api.open-meteo.com/v1/forecast',
     ]
 
-  hourly_vars = [
-      'temperature_2m',
-      'wind_speed_10m',
-      'wind_direction_10m',
-  ]
+  hourly_vars = ['temperature_2m', 'wind_speed_10m', 'wind_direction_10m']
   for p in PRESSURE_LEVELS:
     h = p['hpa']
     hourly_vars.extend([
@@ -189,7 +173,6 @@ def fetch_weather_data(lat, lon, model_code):
 
 
 def get_raw_var_value(hourly_dict, var_prefix, hpa_str, idx):
-  """気圧面変数の取得 (未存在・Noneの場合は None を返す)"""
   target_key = f'{var_prefix}_{hpa_str}hPa'.lower()
   for k, v in hourly_dict.items():
     if k.lower() == target_key:
@@ -199,7 +182,6 @@ def get_raw_var_value(hourly_dict, var_prefix, hpa_str, idx):
 
 
 def process_location_data(data_json, target_datetime):
-  """指定地点のデータを解析・欠損補正・減率チェックを行って表用データを作成"""
   hourly = data_json.get('hourly', {})
   time_list = hourly.get('time', [])
   if not time_list:
@@ -209,20 +191,10 @@ def process_location_data(data_json, target_datetime):
   target_dt = pd.to_datetime(target_datetime)
   idx = abs(times - target_dt).argmin()
 
-  # 地上(2m / 10m)データ
-  sfc_temp = hourly.get('temperature_2m', [15.0])[idx]
-  if sfc_temp is None:
-    sfc_temp = 15.0
+  sfc_temp = hourly.get('temperature_2m', [15.0])[idx] or 15.0
+  sfc_ws = hourly.get('wind_speed_10m', [0.0])[idx] or 0.0
+  sfc_wd = hourly.get('wind_direction_10m', [0.0])[idx] or 0.0
 
-  sfc_ws = hourly.get('wind_speed_10m', [0.0])[idx]
-  if sfc_ws is None:
-    sfc_ws = 0.0
-
-  sfc_wd = hourly.get('wind_direction_10m', [0.0])[idx]
-  if sfc_wd is None:
-    sfc_wd = 0.0
-
-  # 0ft(地上)の基準点を追加
   press_alts = [0.0]
   temps = [sfc_temp]
 
@@ -230,7 +202,6 @@ def process_location_data(data_json, target_datetime):
   u_comp = [-sfc_ws * math.sin(rad_sfc)]
   v_comp = [-sfc_ws * math.cos(rad_sfc)]
 
-  # 各気圧面のデータ取得（欠損時は地上からの標準減率で補算）
   for p in PRESSURE_LEVELS:
     h = p['hpa']
     alt_ft = float(p['ft'])
@@ -273,11 +244,11 @@ def process_location_data(data_json, target_datetime):
     wd_mag = (wd_true + MAG_VARIATION) % 360
     wd_mag_rounded = int(round(wd_mag))
 
-    if wd_mag_rounded == 0 or wd_mag_rounded == 360:
-      wd_mag_str = '360'
-    else:
-      wd_mag_str = f'{wd_mag_rounded:03d}'
-
+    wd_mag_str = (
+        '360'
+        if wd_mag_rounded in (0, 360)
+        else f'{wd_mag_rounded:03d}'
+    )
     isa_diff = calculate_isa_diff(target_alt, t_interp)
     temp_rounded = int(round(t_interp))
 
@@ -294,8 +265,7 @@ def process_location_data(data_json, target_datetime):
 def generate_map_figure(
     all_location_data, geojson_data, target_datetime, model_code
 ):
-  """カラー着色された地図・表・引出線を描画したMatplotlib Figureを生成"""
-  fig = plt.figure(figsize=(16, 11), dpi=200, facecolor='white')
+  fig = plt.figure(figsize=(16, 11), dpi=150, facecolor='white')
 
   model_display_names = {
       'ECMWF': 'ECMWF (IFS)',
@@ -305,7 +275,6 @@ def generate_map_figure(
   }
   model_name = model_display_names.get(model_code, model_code)
 
-  # メインタイトル
   dt_str = target_datetime.strftime('%Y年%m月%d日 %H:00 JST')
   fig.suptitle(
       f'出発時刻の予想風 （ {dt_str} / モデル: {model_name}）',
@@ -315,17 +284,13 @@ def generate_map_figure(
       y=0.97,
   )
 
-  # 中央の地図用Axes
   ax_map = fig.add_axes([0.27, 0.20, 0.46, 0.54])
   ax_map.set_aspect('equal')
   ax_map.axis('off')
   ax_map.set_xlim(133.0, 137.5)
   ax_map.set_ylim(33.2, 35.8)
-
-  # 海の色
   ax_map.set_facecolor('#D4E6F1')
 
-  # 陸地描画
   if geojson_data:
     for feature in geojson_data.get('features', []):
       geom = feature.get('geometry', {})
@@ -356,7 +321,6 @@ def generate_map_figure(
                 zorder=2,
             )
 
-  # 地点表と引出線
   for loc in LOCATIONS_CONFIG:
     name = loc['name']
     lat, lon = loc['lat'], loc['lon']
@@ -367,17 +331,10 @@ def generate_map_figure(
           [f'{alt}', '---', '---', '---'] for alt in TARGET_ALTITUDES
       ]
 
-    # --- 地点プロット（空港判定で飛行機マークに変更） ---
     is_airport = 'RJ' in name or '空港' in name
-
     if is_airport:
       ax_map.scatter(
-          lon,
-          lat,
-          marker='$✈$',
-          s=130,
-          color='#C0392B',
-          zorder=5,
+          lon, lat, marker='$✈$', s=130, color='#C0392B', zorder=5
       )
     else:
       ax_map.scatter(
@@ -390,12 +347,10 @@ def generate_map_figure(
           linewidths=1.0,
       )
 
-    # 表用サブAxes
     rect = loc['rect']
     ax_table = fig.add_axes(rect, facecolor='white')
     ax_table.axis('off')
 
-    # 地点タイトル（日本語標準フォントに戻して元の表示スタイルを維持）
     ax_table.text(
         0.0,
         0.91,
@@ -408,7 +363,6 @@ def generate_map_figure(
         fontfamily=['Meiryo', 'Yu Gothic', 'IPAGothic', 'sans-serif'],
     )
 
-    # 表の作成
     col_labels = ['高度(ft)', '気温(℃)', '風', 'ISA差']
     col_widths = [0.22, 0.20, 0.38, 0.20]
 
@@ -421,11 +375,9 @@ def generate_map_figure(
         bbox=[0.0, 0.0, 1.0, 0.88],
     )
 
-    # 表セル内のフォントとデザインの調整（表内の数字・文字はご提示画像の太字スタイル）
     for (r, c), cell in table.get_celld().items():
       cell.set_linewidth(0.8)
       cell.set_edgecolor('#1A5276')
-
       txt = cell.get_text()
       txt.set_clip_on(False)
 
@@ -436,18 +388,12 @@ def generate_map_figure(
         txt.set_weight('bold')
         txt.set_fontfamily(['Meiryo', 'Yu Gothic', 'IPAGothic', 'sans-serif'])
       else:
-        if r % 2 == 1:
-          cell.set_facecolor('#FFFFFF')
-        else:
-          cell.set_facecolor('#EDF2F7')
-
+        cell.set_facecolor('#FFFFFF' if r % 2 == 1 else '#EDF2F7')
         txt.set_color('#000000')
         txt.set_fontsize(13.0)
         txt.set_weight('bold')
-        # 表の中の文字・数字専用の太字サンセリフフォント
         txt.set_fontfamily(['DejaVu Sans', 'Arial', 'sans-serif'])
 
-    # 引出線
     conn_x, conn_y = loc['conn']
     con = mpatches.ConnectionPatch(
         xyA=(conn_x, conn_y),
@@ -461,7 +407,6 @@ def generate_map_figure(
     )
     fig.add_artist(con)
 
-  # 右下のデータ参照元注記表記
   source_dict = {
       'ECMWF': 'ECMWF (IFS Model)',
       'JMA': 'JMA (GSM Model)',
@@ -485,55 +430,23 @@ def generate_map_figure(
 
 
 def render_runway_html(progress_pct, is_takeoff=False):
-  """進捗％と連動した滑走路HTMLを出力"""
   if is_takeoff:
-    plane_x = 265
-    plane_y = -18
-    plane_rotate = -20
+    plane_x, plane_y, plane_rotate = 265, -18, -20
   else:
     plane_x = int((progress_pct / 100) * 220)
-    plane_y = 0
-    plane_rotate = 0
+    plane_y, plane_rotate = 0, 0
 
-  html_code = f"""
+  return f"""
     <style>
-    .runway-container {{
-        position: relative;
-        width: 100%;
-        max-width: 320px;
-        height: 48px;
-        background-color: #f0f4f8;
-        border-radius: 8px;
-        overflow: hidden;
-        margin: 8px 0;
-        border: 1px solid #cbd5e1;
-    }}
-    .runway-line {{
-        position: absolute;
-        bottom: 12px;
-        left: 0;
-        width: 100%;
-        height: 2px;
-        border-top: 2px dashed #94a3b8;
-    }}
-    .plane-icon {{
-        position: absolute;
-        font-size: 20px;
-        line-height: 1;
-        left: 12px;
-        bottom: 10px;
-        transform: translate3d({plane_x}px, {plane_y}px, 0) rotate({plane_rotate}deg);
-        transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-        will-change: transform;
-        z-index: 10;
-    }}
+    .runway-container {{ position: relative; width: 100%; max-width: 320px; height: 48px; background-color: #f0f4f8; border-radius: 8px; overflow: hidden; margin: 8px 0; border: 1px solid #cbd5e1; }}
+    .runway-line {{ position: absolute; bottom: 12px; left: 0; width: 100%; height: 2px; border-top: 2px dashed #94a3b8; }}
+    .plane-icon {{ position: absolute; font-size: 20px; line-height: 1; left: 12px; bottom: 10px; transform: translate3d({plane_x}px, {plane_y}px, 0) rotate({plane_rotate}deg); transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; z-index: 10; }}
     </style>
     <div class="runway-container">
         <div class="runway-line"></div>
         <div class="plane-icon">🛫</div>
     </div>
     """
-  return html_code
 
 
 # --- Streamlit 画面構成 ---
@@ -542,87 +455,25 @@ st.set_page_config(page_title='🛫Winds Aloft 予想風作成🛫', layout='wid
 st.markdown(
     """
     <style>
-    html, body, [class*="css"] {
-        font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important;
-    }
-    div[data-baseweb="select"],
-    div[data-baseweb="input"],
-    div[data-baseweb="popover"] {
-        cursor: pointer !important;
-    }
-    div[data-baseweb="select"] *,
-    div[data-baseweb="input"] * {
-        cursor: pointer !important;
-    }
+    html, body, [class*="css"] { font-family: 'Meiryo', 'Meiryo UI', 'Hiragino Kaku Gothic ProN', sans-serif !important; }
+    div[data-baseweb="select"], div[data-baseweb="input"] { cursor: pointer !important; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-components.html(
-    """
-    <script>
-    const setupDropdownBehavior = () => {
-        const doc = window.parent.document;
-        const dropdownContainers = doc.querySelectorAll('div[data-baseweb="select"], div[data-baseweb="input"]');
-        
-        dropdownContainers.forEach(container => {
-            if (container.dataset.hasCloseListener) return;
-            container.dataset.hasCloseListener = "true";
-
-            container.addEventListener('click', (e) => {
-                const openPopovers = doc.querySelectorAll('div[data-baseweb="popover"]');
-                if (openPopovers.length > 0) {
-                    doc.body.click();
-                }
-            }, true);
-        });
-    };
-
-    setInterval(setupDropdownBehavior, 300);
-    </script>
-    """,
-    height=0,
-    width=0,
-)
-
 st.title('🛫Winds Aloft 予想風 出力🛫')
 
-st.markdown(
-    """
-    <div style="
-        display: inline-block;
-        max-width: 100%;
-        font-size: 10px;
-        color: #4a5568;
-        background-color: #f8fafc;
-        padding: 6px 12px;
-        border-radius: 6px;
-        border: 1px solid #e2e8f0;
-        margin-bottom: 12px;
-        line-height: 1.4;
-    ">
-        <div style="font-weight: bold; color: #2d3748; margin-bottom: 3px;">💡 気象モデルの概要メモ</div>
-        <ul style="margin: 0; padding-left: 16px; list-style-type: disc;">
-            <li><b>ECMWF（欧州中期予報センター）</b>: 世界最高水準の予測精度（標準・おすすめ）</li>
-            <li><b>気象庁 JMA（GSM）</b>: 日本の気象庁による全体数値予報モデル（国内・近海に強み）</li>
-            <li><b>GFS（アメリカ海洋大気庁）</b>: 米国NOAAによる世界モデル</li>
-            <li><b>ICON（ドイツ気象庁）</b>: ドイツ気象庁による高精度グローバルモデル</li>
-        </ul>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# セッション状態の初期化
+if 'pdf_bytes' not in st.session_state:
+  st.session_state.pdf_bytes = None
+if 'pdf_filename' not in st.session_state:
+  st.session_state.pdf_filename = ''
+if 'info_text' not in st.session_state:
+  st.session_state.info_text = ''
 
-# 現在の日本時間（JST）を自動取得
 jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
-
-if 'pdf_data' not in st.session_state:
-  st.session_state.pdf_data = None
-  st.session_state.pdf_filename = ''
-  st.session_state.fig = None
-  st.session_state.info_text = ''
 
 MODEL_OPTIONS = {
     'ECMWF (欧州中期予報センター)': 'ECMWF',
@@ -644,17 +495,16 @@ with col3:
   current_hour = now_jst.hour
   all_hours = [(current_hour + i) % 24 for i in range(24)]
   hours_list = [f'{h:02d}:00' for h in all_hours]
-
   selected_hour_str = st.selectbox('時刻 (JST)', hours_list, index=0)
   selected_hour = int(selected_hour_str.split(':')[0])
 
 with col4:
   st.write(' ')
   st.write(' ')
-  if st.session_state.pdf_data is not None:
+  if st.session_state.pdf_bytes:
     st.download_button(
         label='📄 PDFをダウンロード',
-        data=st.session_state.pdf_data,
+        data=st.session_state.pdf_bytes,
         file_name=st.session_state.pdf_filename,
         mime='application/pdf',
         type='secondary',
@@ -667,7 +517,6 @@ target_datetime = datetime.combine(
     selected_date, datetime.min.time()
 ) + timedelta(hours=selected_hour)
 
-st.write('')
 if st.button('データ取得＆予想風を作成', type='primary'):
   loading_container = st.container()
 
@@ -676,12 +525,12 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     status_text = st.empty()
 
     plane_box.markdown(render_runway_html(0), unsafe_allow_html=True)
-
     status_text.markdown('**[1/3]** 日本地図データを準備中...')
     geojson_data = get_japan_geojson()
 
     all_location_data = {}
     total_locs = len(LOCATIONS_CONFIG)
+    has_error = False
 
     for i, loc in enumerate(LOCATIONS_CONFIG, 1):
       pct = int((i / total_locs) * 80)
@@ -695,62 +544,69 @@ if st.button('データ取得＆予想風を作成', type='primary'):
         rows = process_location_data(data_json, target_datetime)
         all_location_data[loc['name']] = rows
       except Exception as e:
-        st.error(f"{loc['name']} の取得失敗: {e}")
+        st.error(
+            f"{loc['name']} のデータ取得に失敗しました。"
+            ' 時間をおいて再試行してください。'
+        )
+        has_error = True
+        break
 
-    status_text.markdown(
-        '**[3/3]** 高度別予想風の表とPDFを出力中...'
-    )
-    fig = generate_map_figure(
-        all_location_data, geojson_data, target_datetime, model_code
-    )
+    if not has_error:
+      status_text.markdown(
+          '**[3/3]** 高度別予想風の表とPDFを出力中...'
+      )
+      fig = generate_map_figure(
+          all_location_data, geojson_data, target_datetime, model_code
+      )
 
-    pdf_buffer = io.BytesIO()
-    fig.savefig(
-        pdf_buffer,
-        format='pdf',
-        bbox_inches='tight',
-        facecolor=fig.get_facecolor(),
-    )
-    pdf_buffer.seek(0)
+      # PDFデータ化
+      pdf_buffer = io.BytesIO()
+      fig.savefig(
+          pdf_buffer,
+          format='pdf',
+          bbox_inches='tight',
+          facecolor=fig.get_facecolor(),
+      )
+      pdf_buffer.seek(0)
 
-    plane_box.markdown(
-        render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
-    )
-    status_text.markdown('✨ **テイクオフ！完成しました。**')
-    time.sleep(0.6)
+      # セッションに保管
+      filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
+      executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
+
+      st.session_state.pdf_bytes = pdf_buffer.getvalue()
+      st.session_state.pdf_filename = filename
+      st.session_state.info_text = (
+          f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
+          f' <b>{selected_date.strftime("%Y年%m月%d日")}'
+          f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_code}</b>）'
+      )
+
+      # メモリ解放（超重要）
+      plt.close(fig)
+
+      plane_box.markdown(
+          render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
+      )
+      status_text.markdown('✨ **テイクオフ！完成しました。**')
+      time.sleep(0.5)
 
   loading_container.empty()
-
-  filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
-  executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
-
-  st.session_state.pdf_data = pdf_buffer.getvalue()
-  st.session_state.pdf_filename = filename
-  st.session_state.fig = fig
-  st.session_state.info_text = (
-      f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
-      f' <b>{selected_date.strftime("%Y年%m月%d日")}'
-      f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_code}</b>）'
-  )
-
   st.rerun()
 
-if st.session_state.fig is not None:
+# 結果表示
+if st.session_state.pdf_bytes:
   st.markdown(
       f"""
     <div style="
-        display: inline-block;
-        background-color: #E6F4EA;
-        color: #137333;
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-size: 14px;
-        margin-bottom: 12px;
-        border: 1px solid #CEEAD6;
+        display: inline-block; background-color: #E6F4EA; color: #137333;
+        padding: 8px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; border: 1px solid #CEEAD6;
     ">
         {st.session_state.info_text}
     </div>
     """,
       unsafe_allow_html=True,
   )
-  st.pyplot(st.session_state.fig, use_container_width=True)
+
+  # PDFバッファから画面表示用画像を再描画して軽量に表示
+  # （Streamlitのセッションを肥大化させないための措置）
+  st.info('※上の「PDFをダウンロード」ボタンからPDFファイルを取得できます。')
