@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
 
 # サーバーにインストールされたフォントをMatplotlibへ直接読み込ませる
 for font_path in glob.glob('/usr/share/fonts/**/*.[o|t]tf', recursive=True):
@@ -471,6 +470,8 @@ if 'pdf_filename' not in st.session_state:
   st.session_state.pdf_filename = ''
 if 'info_text' not in st.session_state:
   st.session_state.info_text = ''
+if 'current_fig' not in st.session_state:
+  st.session_state.current_fig = None
 
 jst = timezone(timedelta(hours=9))
 now_jst = datetime.now(jst)
@@ -580,9 +581,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
           f' <b>{selected_date.strftime("%Y年%m月%d日")}'
           f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_code}</b>）'
       )
-
-      # メモリ解放（超重要）
-      plt.close(fig)
+      st.session_state.current_fig = fig
 
       plane_box.markdown(
           render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
@@ -593,7 +592,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
   loading_container.empty()
   st.rerun()
 
-# 結果表示
+# 結果表示（画面内プレビューと情報ラベル）
 if st.session_state.pdf_bytes:
   st.markdown(
       f"""
@@ -607,6 +606,6 @@ if st.session_state.pdf_bytes:
       unsafe_allow_html=True,
   )
 
-  # PDFバッファから画面表示用画像を再描画して軽量に表示
-  # （Streamlitのセッションを肥大化させないための措置）
-  st.info('※上の「PDFをダウンロード」ボタンからPDFファイルを取得できます。')
+  # 画面内に描画データをプレビュー表示
+  if st.session_state.current_fig:
+    st.pyplot(st.session_state.current_fig, clear_figure=True)
