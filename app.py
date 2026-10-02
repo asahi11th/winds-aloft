@@ -91,7 +91,7 @@ LOCATIONS_CONFIG = [
     },
 ]
 
-# 安定して取得可能な主要気圧面（hPa）
+# 高層補間用気圧面（1000hPa = 約364ft 〜 800hPa = 約6390ft）
 PRESSURE_LEVELS = [
     {'hpa': '1000', 'ft': 364},
     {'hpa': '950', 'ft': 1940},
@@ -100,7 +100,6 @@ PRESSURE_LEVELS = [
     {'hpa': '800', 'ft': 6390},
 ]
 
-# 2500ftを除外した目標高度リスト
 TARGET_ALTITUDES = [0, 2000, 3000, 5000, 6400]
 MAG_VARIATION = 8.0
 
@@ -191,6 +190,7 @@ def process_location_data(data_json, target_datetime):
   target_dt = pd.to_datetime(target_datetime)
   idx = abs(times - target_dt).argmin()
 
+  # 地上(0ft / 10m)データ
   sfc_temp = hourly.get('temperature_2m', [15.0])[idx]
   if sfc_temp is None:
     sfc_temp = 15.0
@@ -201,15 +201,12 @@ def process_location_data(data_json, target_datetime):
   if sfc_wd is None:
     sfc_wd = 0.0
 
-  data_points = []
-
-  # 地上(0ft)データ
   rad_sfc = math.radians(sfc_wd)
   u_sfc = -sfc_ws * math.sin(rad_sfc)
   v_sfc = -sfc_ws * math.cos(rad_sfc)
-  data_points.append((0.0, sfc_temp, u_sfc, v_sfc))
 
-  # 有効な気圧面データのみ取得
+  # 上空（高層気象面）専用データポイント（地上風は含めない）
+  upper_data_points = []
   for p in PRESSURE_LEVELS:
     h = p['hpa']
     alt_ft = float(p['ft'])
@@ -222,15 +219,14 @@ def process_location_data(data_json, target_datetime):
       rad = math.radians(wd_val)
       u_val = -ws_val * math.sin(rad)
       v_val = -ws_val * math.cos(rad)
-      data_points.append((alt_ft, t_val, u_val, v_val))
+      upper_data_points.append((alt_ft, t_val, u_val, v_val))
 
-  # 高度順にソート
-  data_points.sort(key=lambda x: x[0])
+  upper_data_points.sort(key=lambda x: x[0])
 
-  press_alts = [p[0] for p in data_points]
-  temps = [p[1] for p in data_points]
-  u_comp = [p[2] for p in data_points]
-  v_comp = [p[3] for p in data_points]
+  upper_alts = [p[0] for p in upper_data_points]
+  upper_temps = [p[1] for p in upper_data_points]
+  upper_u = [p[2] for p in upper_data_points]
+  upper_v = [p[3] for p in upper_data_points]
 
   rows = []
   for target_alt in TARGET_ALTITUDES:
@@ -239,9 +235,10 @@ def process_location_data(data_json, target_datetime):
       u_interp = u_sfc
       v_interp = v_sfc
     else:
-      t_interp = float(np.interp(target_alt, press_alts, temps))
-      u_interp = float(np.interp(target_alt, press_alts, u_comp))
-      v_interp = float(np.interp(target_alt, press_alts, v_comp))
+      # 上空層のみで高精度補間
+      t_interp = float(np.interp(target_alt, upper_alts, upper_temps))
+      u_interp = float(np.interp(target_alt, upper_alts, upper_u))
+      v_interp = float(np.interp(target_alt, upper_alts, upper_v))
 
     ws_interp = math.hypot(u_interp, v_interp)
     wd_true = (math.degrees(math.atan2(-u_interp, -v_interp)) + 360) % 360
@@ -467,7 +464,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title('🛫Winds Aloft 予想风 出力🛫')
+st.title('🛫Winds Aloft 予想風 出力🛫')
 
 if 'pdf_bytes' not in st.session_state:
   st.session_state.pdf_bytes = None
