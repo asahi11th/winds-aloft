@@ -190,17 +190,25 @@ def process_location_data(data_json, target_datetime):
   target_dt = pd.to_datetime(target_datetime)
   idx = abs(times - target_dt).argmin()
 
-  sfc_temp = hourly.get('temperature_2m', [15.0])[idx] or 15.0
-  sfc_ws = hourly.get('wind_speed_10m', [0.0])[idx] or 0.0
-  sfc_wd = hourly.get('wind_direction_10m', [0.0])[idx] or 0.0
+  sfc_temp = hourly.get('temperature_2m', [15.0])[idx]
+  if sfc_temp is None:
+    sfc_temp = 15.0
+  sfc_ws = hourly.get('wind_speed_10m', [0.0])[idx]
+  if sfc_ws is None:
+    sfc_ws = 0.0
+  sfc_wd = hourly.get('wind_direction_10m', [0.0])[idx]
+  if sfc_wd is None:
+    sfc_wd = 0.0
 
-  press_alts = [0.0]
-  temps = [sfc_temp]
+  data_points = []
 
+  # 0ft (地上)
   rad_sfc = math.radians(sfc_wd)
-  u_comp = [-sfc_ws * math.sin(rad_sfc)]
-  v_comp = [-sfc_ws * math.cos(rad_sfc)]
+  u_sfc = -sfc_ws * math.sin(rad_sfc)
+  v_sfc = -sfc_ws * math.cos(rad_sfc)
+  data_points.append((0.0, sfc_temp, u_sfc, v_sfc))
 
+  # 各気圧面データ
   for p in PRESSURE_LEVELS:
     h = p['hpa']
     alt_ft = float(p['ft'])
@@ -216,19 +224,26 @@ def process_location_data(data_json, target_datetime):
     if wd_val is None:
       wd_val = sfc_wd
 
-    press_alts.append(alt_ft)
-    temps.append(t_val)
-
     rad = math.radians(wd_val)
-    u_comp.append(-ws_val * math.sin(rad))
-    v_comp.append(-ws_val * math.cos(rad))
+    u_val = -ws_val * math.sin(rad)
+    v_val = -ws_val * math.cos(rad)
+
+    data_points.append((alt_ft, t_val, u_val, v_val))
+
+  # 高度順（昇順）にソートして補間崩れを厳密に防止
+  data_points.sort(key=lambda x: x[0])
+
+  press_alts = [p[0] for p in data_points]
+  temps = [p[1] for p in data_points]
+  u_comp = [p[2] for p in data_points]
+  v_comp = [p[3] for p in data_points]
 
   rows = []
   for target_alt in TARGET_ALTITUDES:
     if target_alt == 0:
       t_interp = sfc_temp
-      u_interp = u_comp[0]
-      v_interp = v_comp[0]
+      u_interp = u_sfc
+      v_interp = v_sfc
     else:
       t_interp = float(np.interp(target_alt, press_alts, temps))
       u_interp = float(np.interp(target_alt, press_alts, u_comp))
@@ -592,7 +607,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
   loading_container.empty()
   st.rerun()
 
-# 結果表示（画面内プレビューと情報ラベル）
+# 結果表示
 if st.session_state.pdf_bytes:
   st.markdown(
       f"""
@@ -606,6 +621,5 @@ if st.session_state.pdf_bytes:
       unsafe_allow_html=True,
   )
 
-  # 画面内に描画データをプレビュー表示
   if st.session_state.current_fig:
     st.pyplot(st.session_state.current_fig, clear_figure=True)
