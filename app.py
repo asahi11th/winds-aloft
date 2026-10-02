@@ -6,7 +6,7 @@ import time
 
 import matplotlib
 
-matplotlib.use('Agg')  # マルチスレッド/複数アクセス時の描画スレッド安全化
+matplotlib.use('Agg')
 import matplotlib.font_manager as fm
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -15,7 +15,7 @@ import pandas as pd
 import requests
 import streamlit as st
 
-# サーバーにインストールされたフォントをMatplotlibへ直接読み込ませる
+# サーバーフォントの読み込み
 for font_path in glob.glob('/usr/share/fonts/**/*.[o|t]tf', recursive=True):
   try:
     fm.fontManager.addfont(font_path)
@@ -91,16 +91,17 @@ LOCATIONS_CONFIG = [
     },
 ]
 
+# 安定して取得可能な主要気圧面（hPa）
 PRESSURE_LEVELS = [
     {'hpa': '1000', 'ft': 364},
     {'hpa': '950', 'ft': 1940},
-    {'hpa': '925', 'ft': 2500},
     {'hpa': '900', 'ft': 3210},
     {'hpa': '850', 'ft': 4780},
     {'hpa': '800', 'ft': 6390},
 ]
 
-TARGET_ALTITUDES = [0, 2000, 2500, 3000, 5000, 6400]
+# 2500ftを除外した目標高度リスト
+TARGET_ALTITUDES = [0, 2000, 3000, 5000, 6400]
 MAG_VARIATION = 8.0
 
 
@@ -202,13 +203,13 @@ def process_location_data(data_json, target_datetime):
 
   data_points = []
 
-  # 0ft (地上)
+  # 地上(0ft)データ
   rad_sfc = math.radians(sfc_wd)
   u_sfc = -sfc_ws * math.sin(rad_sfc)
   v_sfc = -sfc_ws * math.cos(rad_sfc)
   data_points.append((0.0, sfc_temp, u_sfc, v_sfc))
 
-  # 各気圧面データ
+  # 有効な気圧面データのみ取得
   for p in PRESSURE_LEVELS:
     h = p['hpa']
     alt_ft = float(p['ft'])
@@ -217,20 +218,13 @@ def process_location_data(data_json, target_datetime):
     ws_val = get_raw_var_value(hourly, 'wind_speed', h, idx)
     wd_val = get_raw_var_value(hourly, 'wind_direction', h, idx)
 
-    if t_val is None:
-      t_val = sfc_temp - (alt_ft / 1000.0) * 1.98
-    if ws_val is None:
-      ws_val = sfc_ws
-    if wd_val is None:
-      wd_val = sfc_wd
+    if t_val is not None and ws_val is not None and wd_val is not None:
+      rad = math.radians(wd_val)
+      u_val = -ws_val * math.sin(rad)
+      v_val = -ws_val * math.cos(rad)
+      data_points.append((alt_ft, t_val, u_val, v_val))
 
-    rad = math.radians(wd_val)
-    u_val = -ws_val * math.sin(rad)
-    v_val = -ws_val * math.cos(rad)
-
-    data_points.append((alt_ft, t_val, u_val, v_val))
-
-  # 高度順（昇順）にソートして補間崩れを厳密に防止
+  # 高度順にソート
   data_points.sort(key=lambda x: x[0])
 
   press_alts = [p[0] for p in data_points]
@@ -248,9 +242,6 @@ def process_location_data(data_json, target_datetime):
       t_interp = float(np.interp(target_alt, press_alts, temps))
       u_interp = float(np.interp(target_alt, press_alts, u_comp))
       v_interp = float(np.interp(target_alt, press_alts, v_comp))
-
-      expected_isa_temp = sfc_temp - (target_alt / 1000.0) * 1.98
-      t_interp = np.clip(t_interp, expected_isa_temp - 8.0, sfc_temp + 5.0)
 
     ws_interp = math.hypot(u_interp, v_interp)
     wd_true = (math.degrees(math.atan2(-u_interp, -v_interp)) + 360) % 360
@@ -476,9 +467,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title('🛫Winds Aloft 予想風 出力🛫')
+st.title('🛫Winds Aloft 予想风 出力🛫')
 
-# セッション状態の初期化
 if 'pdf_bytes' not in st.session_state:
   st.session_state.pdf_bytes = None
 if 'pdf_filename' not in st.session_state:
@@ -575,7 +565,6 @@ if st.button('データ取得＆予想風を作成', type='primary'):
           all_location_data, geojson_data, target_datetime, model_code
       )
 
-      # PDFデータ化
       pdf_buffer = io.BytesIO()
       fig.savefig(
           pdf_buffer,
@@ -585,7 +574,6 @@ if st.button('データ取得＆予想風を作成', type='primary'):
       )
       pdf_buffer.seek(0)
 
-      # セッションに保管
       filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
       executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
 
@@ -607,7 +595,6 @@ if st.button('データ取得＆予想風を作成', type='primary'):
   loading_container.empty()
   st.rerun()
 
-# 結果表示
 if st.session_state.pdf_bytes:
   st.markdown(
       f"""
