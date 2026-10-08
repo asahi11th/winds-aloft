@@ -414,7 +414,6 @@ def generate_map_figure(
       'ECMWF': 'ECMWF (IFS Model)',
       'JMA': 'JMA (GSM Model)',
       'GFS': 'NOAA (GFS Model)',
-      'ICON': 'DWD (ICON Model)',
   }
   source_label = source_dict.get(model_code, model_code)
 
@@ -435,7 +434,7 @@ def generate_map_figure(
 # 滑走路上を加速・離陸するアニメーション生成HTML関数
 def render_runway_html(progress_pct, is_takeoff=False):
   if is_takeoff:
-    plane_x, plane_y, plane_rotate = 265, -18, -20
+    plane_x, plane_y, plane_rotate = 260, -18, -20
   else:
     plane_x = int((progress_pct / 100) * 220)
     plane_y, plane_rotate = 0, 0
@@ -444,7 +443,7 @@ def render_runway_html(progress_pct, is_takeoff=False):
     <style>
     .runway-container {{ position: relative; width: 100%; max-width: 320px; height: 48px; background-color: #f0f4f8; border-radius: 8px; overflow: hidden; margin: 8px 0; border: 1px solid #cbd5e1; }}
     .runway-line {{ position: absolute; bottom: 12px; left: 0; width: 100%; height: 2px; border-top: 2px dashed #94a3b8; }}
-    .plane-icon {{ position: absolute; font-size: 20px; line-height: 1; left: 12px; bottom: 10px; transform: translate3d({plane_x}px, {plane_y}px, 0) rotate({plane_rotate}deg); transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; z-index: 10; }}
+    .plane-icon {{ position: absolute; font-size: 20px; line-height: 1; left: 12px; bottom: 10px; transform: translate3d({plane_x}px, {plane_y}px, 0) rotate({plane_rotate}deg); transition: transform 0.25s ease-out; will-change: transform; z-index: 10; }}
     </style>
     <div class="runway-container">
         <div class="runway-line"></div>
@@ -535,16 +534,17 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     plane_box = st.empty()
     status_text = st.empty()
 
-    # 1. 地図データ準備（滑走路アニメーション：0%）
+    # 1. 地図データ準備（0%）
     plane_box.markdown(render_runway_html(0), unsafe_allow_html=True)
     status_text.markdown('**[1/3]** 日本地図データを準備中...')
     geojson_data = get_japan_geojson()
+    time.sleep(0.2)
 
     all_location_data = {}
     total_locs = len(LOCATIONS_CONFIG)
     has_error = False
 
-    # 2. 地点データ取得（地点ごとにプログレス＋飛行機加速）
+    # 2. 地点データ取得（滑走アニメーション＆地点名表示）
     for i, loc in enumerate(LOCATIONS_CONFIG, 1):
       pct = int((i / total_locs) * 80)
       plane_box.markdown(render_runway_html(pct), unsafe_allow_html=True)
@@ -564,7 +564,10 @@ if st.button('データ取得＆予想風を作成', type='primary'):
         has_error = True
         break
 
-    # 3. 図面・PDF生成（滑走路アニメーション：90% 〜 100% テイクオフ）
+      # キャッシュ読み込み時でも画面にアニメーションを反映させる演出ウエイト
+      time.sleep(0.18)
+
+    # 3. 図面・PDF生成（テイクオフ準備 90% 〜 離陸 100%）
     if not has_error:
       plane_box.markdown(render_runway_html(90), unsafe_allow_html=True)
       status_text.markdown(
@@ -596,12 +599,12 @@ if st.button('データ取得＆予想風を作成', type='primary'):
       )
       st.session_state.current_fig = fig
 
-      # テイクオフ演出（100% + 上昇角度）
+      # 離陸（テイクオフ）アニメーション
       plane_box.markdown(
           render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
       )
       status_text.markdown('✨ **テイクオフ！完成しました。**')
-      time.sleep(0.5)
+      time.sleep(0.6)
 
   loading_container.empty()
   st.rerun()
