@@ -91,19 +91,19 @@ LOCATIONS_CONFIG = [
     },
 ]
 
-# APIで確実に取得可能な主要気圧面（700hPa=約9,880ftを追加して6400ftの固着を完全防止）
 PRESSURE_LEVELS = [
     {'hpa': '1000', 'ft': 360},
     {'hpa': '950', 'ft': 1800},
     {'hpa': '900', 'ft': 3100},
     {'hpa': '850', 'ft': 4780},
-    {'hpa': '700', 'ft': 9880},  # ← 追加
+    {'hpa': '700', 'ft': 9880},
 ]
 
 TARGET_ALTITUDES = [0, 2000, 3000, 5000, 6400]
 MAG_VARIATION = 8.0
 
 
+# 地図データのキャッシュ（24時間有効）
 @st.cache_data(ttl=86400)
 def get_japan_geojson():
   url = 'https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson'
@@ -122,7 +122,6 @@ def calculate_isa_diff(alt_ft, temp_c):
 
 
 def interpolate_angle(x_target, x_pts, deg_pts):
-  """角度（風向）を最短経路で滑らかに直線補間する関数"""
   rad_pts = np.radians(deg_pts)
   sin_pts = np.sin(rad_pts)
   cos_pts = np.cos(rad_pts)
@@ -134,6 +133,8 @@ def interpolate_angle(x_target, x_pts, deg_pts):
   return deg_interp
 
 
+# ★APIデータ取得結果を全ユーザー間で共有（1時間キャッシュ）
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_weather_data(lat, lon, model_code):
   if model_code == 'JMA':
     urls = [
@@ -203,7 +204,6 @@ def process_location_data(data_json, target_datetime):
   target_dt = pd.to_datetime(target_datetime)
   idx = abs(times - target_dt).argmin()
 
-  # 地上(0ft / 10m)データ
   sfc_temp = hourly.get('temperature_2m', [15.0])[idx]
   if sfc_temp is None:
     sfc_temp = 15.0
@@ -214,7 +214,6 @@ def process_location_data(data_json, target_datetime):
   if sfc_wd is None:
     sfc_wd = 0.0
 
-  # 上空気象面データ
   upper_data_points = []
   for p in PRESSURE_LEVELS:
     h = p['hpa']
@@ -264,6 +263,30 @@ def process_location_data(data_json, target_datetime):
     ])
 
   return rows
+
+
+# ★描画・PDF作成結果も共有キャッシュ（全ユーザー即時読み込み用）
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_all_locations_and_figure(target_datetime, model_code):
+  geojson_data = get_japan_geojson()
+  all_location_data = {}
+
+  for loc in LOCATIONS_CONFIG:
+    data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
+    rows = process_location_data(data_json, target_datetime)
+    all_location_data[loc['name']] = rows
+
+  fig = generate_map_figure(
+      all_location_data, geojson_data, target_datetime, model_code
+  )
+
+  pdf_buffer = io.BytesIO()
+  fig.savefig(
+      pdf_buffer, format='pdf', bbox_inches='tight', facecolor=fig.get_facecolor()
+  )
+  pdf_buffer.seek(0)
+
+  return all_location_data, pdf_buffer.getvalue(), fig
 
 
 def generate_map_figure(
@@ -529,54 +552,18 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     plane_box = st.empty()
     status_text = st.empty()
 
-    plane_box.markdown(render_runway_html(0), unsafe_allow_html=True)
-    status_text.markdown('**[1/3]** 日本地図データを準備中...')
-    geojson_data = get_japan_geojson()
+    plane_box.markdown(render_runway_html(30), unsafe_allow_html=True)
+    status_text.markdown('**気象データを取得・計算中...（共有キャッシュ使用）**')
 
-    all_location_data = {}
-    total_locs = len(LOCATIONS_CONFIG)
-    has_error = False
-
-    for i, loc in enumerate(LOCATIONS_CONFIG, 1):
-      pct = int((i / total_locs) * 80)
-      plane_box.markdown(render_runway_html(pct), unsafe_allow_html=True)
-      status_text.markdown(
-          f'**[2/3]** 気象データ（{model_code}）を取得中: **{loc["name"]}**'
+    try:
+      all_location_data, pdf_bytes, fig = get_all_locations_and_figure(
+          target_datetime, model_code
       )
-
-      try:
-        data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
-        rows = process_location_data(data_json, target_datetime)
-        all_location_data[loc['name']] = rows
-      except Exception as e:
-        st.error(
-            f"{loc['name']} のデータ取得に失敗しました。"
-            ' 時間をおいて再試行してください。'
-        )
-        has_error = True
-        break
-
-    if not has_error:
-      status_text.markdown(
-          '**[3/3]** 高度別予想風の表とPDFを出力中...'
-      )
-      fig = generate_map_figure(
-          all_location_data, geojson_data, target_datetime, model_code
-      )
-
-      pdf_buffer = io.BytesIO()
-      fig.savefig(
-          pdf_buffer,
-          format='pdf',
-          bbox_inches='tight',
-          facecolor=fig.get_facecolor(),
-      )
-      pdf_buffer.seek(0)
 
       filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
       executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
 
-      st.session_state.pdf_bytes = pdf_buffer.getvalue()
+      st.session_state.pdf_bytes = pdf_bytes
       st.session_state.pdf_filename = filename
       st.session_state.info_text = (
           f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
@@ -589,7 +576,12 @@ if st.button('データ取得＆予想風を作成', type='primary'):
           render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
       )
       status_text.markdown('✨ **テイクオフ！完成しました。**')
-      time.sleep(0.5)
+      time.sleep(0.3)
+
+    except Exception as e:
+      st.error(
+          'データ取得に失敗しました。時間をおいて再試行してください。'
+      )
 
   loading_container.empty()
   st.rerun()
