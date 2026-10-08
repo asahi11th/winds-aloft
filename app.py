@@ -432,7 +432,7 @@ def generate_map_figure(
   return fig
 
 
-# ★滑走路上を加速・離陸するアニメーション生成HTML関数
+# 滑走路上を加速・離陸するアニメーション生成HTML関数
 def render_runway_html(progress_pct, is_takeoff=False):
   if is_takeoff:
     plane_x, plane_y, plane_rotate = 265, -18, -20
@@ -516,4 +516,108 @@ with col4:
         key='download_top',
     )
   else:
-    st.button('📄 PDFをダウンロード', disabled=True
+    st.download_button(
+        label='📄 PDFをダウンロード',
+        data=b'',
+        file_name='',
+        disabled=True,
+        key='download_top_disabled',
+    )
+
+target_datetime = datetime.combine(
+    selected_date, datetime.min.time()
+) + timedelta(hours=selected_hour)
+
+if st.button('データ取得＆予想風を作成', type='primary'):
+  loading_container = st.container()
+
+  with loading_container:
+    plane_box = st.empty()
+    status_text = st.empty()
+
+    # 1. 地図データ準備（滑走路アニメーション：0%）
+    plane_box.markdown(render_runway_html(0), unsafe_allow_html=True)
+    status_text.markdown('**[1/3]** 日本地図データを準備中...')
+    geojson_data = get_japan_geojson()
+
+    all_location_data = {}
+    total_locs = len(LOCATIONS_CONFIG)
+    has_error = False
+
+    # 2. 地点データ取得（地点ごとにプログレス＋飛行機加速）
+    for i, loc in enumerate(LOCATIONS_CONFIG, 1):
+      pct = int((i / total_locs) * 80)
+      plane_box.markdown(render_runway_html(pct), unsafe_allow_html=True)
+      status_text.markdown(
+          f'**[2/3]** 気象データ（{model_code}）を取得中: **{loc["name"]}**'
+      )
+
+      try:
+        data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
+        rows = process_location_data(data_json, target_datetime)
+        all_location_data[loc['name']] = rows
+      except Exception as e:
+        st.error(
+            f"{loc['name']} のデータ取得に失敗しました。"
+            ' 時間をおいて再試行してください。'
+        )
+        has_error = True
+        break
+
+    # 3. 図面・PDF生成（滑走路アニメーション：90% 〜 100% テイクオフ）
+    if not has_error:
+      plane_box.markdown(render_runway_html(90), unsafe_allow_html=True)
+      status_text.markdown(
+          '**[3/3]** 高度別予想風の表とPDFを出力中...'
+      )
+
+      fig = generate_map_figure(
+          all_location_data, geojson_data, target_datetime, model_code
+      )
+
+      pdf_buffer = io.BytesIO()
+      fig.savefig(
+          pdf_buffer,
+          format='pdf',
+          bbox_inches='tight',
+          facecolor=fig.get_facecolor(),
+      )
+      pdf_buffer.seek(0)
+
+      filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
+      executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
+
+      st.session_state.pdf_bytes = pdf_buffer.getvalue()
+      st.session_state.pdf_filename = filename
+      st.session_state.info_text = (
+          f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
+          f' <b>{selected_date.strftime("%Y年%m月%d日")}'
+          f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_code}</b>）'
+      )
+      st.session_state.current_fig = fig
+
+      # テイクオフ演出（100% + 上昇角度）
+      plane_box.markdown(
+          render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
+      )
+      status_text.markdown('✨ **テイクオフ！完成しました。**')
+      time.sleep(0.5)
+
+  loading_container.empty()
+  st.rerun()
+
+if st.session_state.pdf_bytes:
+  st.markdown(
+      f"""
+    <div style="
+        display: inline-block; background-color: #E6F4EA; color: #137333;
+        padding: 8px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; border: 1px solid #CEEAD6;
+    ">
+        {st.session_state.info_text}
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
+
+  if st.session_state.current_fig:
+    st.pyplot(st.session_state.current_fig, clear_figure=True)
