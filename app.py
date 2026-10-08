@@ -133,7 +133,7 @@ def interpolate_angle(x_target, x_pts, deg_pts):
   return deg_interp
 
 
-# ★APIデータ取得結果を全ユーザー間で共有（1時間キャッシュ）
+# APIデータ取得を全ユーザー間で共有（1時間キャッシュ）
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_weather_data(lat, lon, model_code):
   if model_code == 'JMA':
@@ -263,30 +263,6 @@ def process_location_data(data_json, target_datetime):
     ])
 
   return rows
-
-
-# ★描画・PDF作成結果も共有キャッシュ（全ユーザー即時読み込み用）
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_all_locations_and_figure(target_datetime, model_code):
-  geojson_data = get_japan_geojson()
-  all_location_data = {}
-
-  for loc in LOCATIONS_CONFIG:
-    data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
-    rows = process_location_data(data_json, target_datetime)
-    all_location_data[loc['name']] = rows
-
-  fig = generate_map_figure(
-      all_location_data, geojson_data, target_datetime, model_code
-  )
-
-  pdf_buffer = io.BytesIO()
-  fig.savefig(
-      pdf_buffer, format='pdf', bbox_inches='tight', facecolor=fig.get_facecolor()
-  )
-  pdf_buffer.seek(0)
-
-  return all_location_data, pdf_buffer.getvalue(), fig
 
 
 def generate_map_figure(
@@ -456,6 +432,7 @@ def generate_map_figure(
   return fig
 
 
+# ★滑走路上を加速・離陸するアニメーション生成HTML関数
 def render_runway_html(progress_pct, is_takeoff=False):
   if is_takeoff:
     plane_x, plane_y, plane_rotate = 265, -18, -20
@@ -539,65 +516,4 @@ with col4:
         key='download_top',
     )
   else:
-    st.button('📄 PDFをダウンロード', disabled=True)
-
-target_datetime = datetime.combine(
-    selected_date, datetime.min.time()
-) + timedelta(hours=selected_hour)
-
-if st.button('データ取得＆予想風を作成', type='primary'):
-  loading_container = st.container()
-
-  with loading_container:
-    plane_box = st.empty()
-    status_text = st.empty()
-
-    plane_box.markdown(render_runway_html(30), unsafe_allow_html=True)
-    status_text.markdown('**気象データを取得&出力中**')
-
-    try:
-      all_location_data, pdf_bytes, fig = get_all_locations_and_figure(
-          target_datetime, model_code
-      )
-
-      filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
-      executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
-
-      st.session_state.pdf_bytes = pdf_bytes
-      st.session_state.pdf_filename = filename
-      st.session_state.info_text = (
-          f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
-          f' <b>{selected_date.strftime("%Y年%m月%d日")}'
-          f' {selected_hour:02d}:00 JST</b> （モデル: <b>{model_code}</b>）'
-      )
-      st.session_state.current_fig = fig
-
-      plane_box.markdown(
-          render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
-      )
-      status_text.markdown('✨ **テイクオフ！完成しました。**')
-      time.sleep(0.3)
-
-    except Exception as e:
-      st.error(
-          'データ取得に失敗しました。時間をおいて再試行してください。'
-      )
-
-  loading_container.empty()
-  st.rerun()
-
-if st.session_state.pdf_bytes:
-  st.markdown(
-      f"""
-    <div style="
-        display: inline-block; background-color: #E6F4EA; color: #137333;
-        padding: 8px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; border: 1px solid #CEEAD6;
-    ">
-        {st.session_state.info_text}
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
-
-  if st.session_state.current_fig:
-    st.pyplot(st.session_state.current_fig, clear_figure=True)
+    st.button('📄 PDFをダウンロード', disabled=True
