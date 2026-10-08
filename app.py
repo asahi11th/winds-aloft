@@ -553,7 +553,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     status_text = st.empty()
 
     plane_box.markdown(render_runway_html(30), unsafe_allow_html=True)
-    status_text.markdown(f'**[2/3]** 気象データ（{model_code}）を取得中: **{loc["name"]}**')
+    status_text.markdown('**気象データを取得&出力中**')
 
     try:
       all_location_data, pdf_bytes, fig = get_all_locations_and_figure(
