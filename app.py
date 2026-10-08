@@ -133,7 +133,7 @@ def interpolate_angle(x_target, x_pts, deg_pts):
   return deg_interp
 
 
-# ★APIデータ取得結果を全ユーザー間で共有（1時間キャッシュ）
+# ★APIデータ取得を全ユーザー間で共有（1時間キャッシュ）
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_weather_data(lat, lon, model_code):
   if model_code == 'JMA':
@@ -263,30 +263,6 @@ def process_location_data(data_json, target_datetime):
     ])
 
   return rows
-
-
-# ★描画・PDF作成結果も共有キャッシュ（全ユーザー即時読み込み用）
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_all_locations_and_figure(target_datetime, model_code):
-  geojson_data = get_japan_geojson()
-  all_location_data = {}
-
-  for loc in LOCATIONS_CONFIG:
-    data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
-    rows = process_location_data(data_json, target_datetime)
-    all_location_data[loc['name']] = rows
-
-  fig = generate_map_figure(
-      all_location_data, geojson_data, target_datetime, model_code
-  )
-
-  pdf_buffer = io.BytesIO()
-  fig.savefig(
-      pdf_buffer, format='pdf', bbox_inches='tight', facecolor=fig.get_facecolor()
-  )
-  pdf_buffer.seek(0)
-
-  return all_location_data, pdf_buffer.getvalue(), fig
 
 
 def generate_map_figure(
@@ -552,18 +528,58 @@ if st.button('データ取得＆予想風を作成', type='primary'):
     plane_box = st.empty()
     status_text = st.empty()
 
-    plane_box.markdown(render_runway_html(30), unsafe_allow_html=True)
-    status_text.markdown('**気象データを取得・計算中...（共有キャッシュ使用）**')
+    # 1. 地図データ取得
+    plane_box.markdown(render_runway_html(0), unsafe_allow_html=True)
+    status_text.markdown('**[1/3]** 日本地図データを準備中...')
+    geojson_data = get_japan_geojson()
 
-    try:
-      all_location_data, pdf_bytes, fig = get_all_locations_and_figure(
-          target_datetime, model_code
+    all_location_data = {}
+    total_locs = len(LOCATIONS_CONFIG)
+    has_error = False
+
+    # 2. 地点データ取得（地点ごとにプログレス更新）
+    for i, loc in enumerate(LOCATIONS_CONFIG, 1):
+      pct = int((i / total_locs) * 80)
+      plane_box.markdown(render_runway_html(pct), unsafe_allow_html=True)
+      status_text.markdown(
+          f'**[2/3]** 気象データ（{model_code}）を取得中: **{loc["name"]}**'
       )
+
+      try:
+        # キャッシュ済み関数を呼び出し（2人目以降は一瞬で返る）
+        data_json = fetch_weather_data(loc['lat'], loc['lon'], model_code)
+        rows = process_location_data(data_json, target_datetime)
+        all_location_data[loc['name']] = rows
+      except Exception as e:
+        st.error(
+            f"{loc['name']} のデータ取得に失敗しました。"
+            ' 時間をおいて再試行してください。'
+        )
+        has_error = True
+        break
+
+    # 3. 図面・PDF生成
+    if not has_error:
+      status_text.markdown(
+          '**[3/3]** 高度別予想風の表とPDFを出力中...'
+      )
+      fig = generate_map_figure(
+          all_location_data, geojson_data, target_datetime, model_code
+      )
+
+      pdf_buffer = io.BytesIO()
+      fig.savefig(
+          pdf_buffer,
+          format='pdf',
+          bbox_inches='tight',
+          facecolor=fig.get_facecolor(),
+      )
+      pdf_buffer.seek(0)
 
       filename = f"WindsAloft_{model_code}_{selected_date.strftime('%Y%m%d')}_{selected_hour:02d}00.pdf"
       executed_at = datetime.now(jst).strftime('%Y年%m月%d日 %H:%M JST')
 
-      st.session_state.pdf_bytes = pdf_bytes
+      st.session_state.pdf_bytes = pdf_buffer.getvalue()
       st.session_state.pdf_filename = filename
       st.session_state.info_text = (
           f'取得日時: <b>{executed_at}</b> ／ 対象日時:'
@@ -576,12 +592,7 @@ if st.button('データ取得＆予想風を作成', type='primary'):
           render_runway_html(100, is_takeoff=True), unsafe_allow_html=True
       )
       status_text.markdown('✨ **テイクオフ！完成しました。**')
-      time.sleep(0.3)
-
-    except Exception as e:
-      st.error(
-          'データ取得に失敗しました。時間をおいて再試行してください。'
-      )
+      time.sleep(0.5)
 
   loading_container.empty()
   st.rerun()
@@ -590,14 +601,4 @@ if st.session_state.pdf_bytes:
   st.markdown(
       f"""
     <div style="
-        display: inline-block; background-color: #E6F4EA; color: #137333;
-        padding: 8px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; border: 1px solid #CEEAD6;
-    ">
-        {st.session_state.info_text}
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
-
-  if st.session_state.current_fig:
-    st.pyplot(st.session_state.current_fig, clear_figure=True)
+        display: inline-block; background-color: #E
